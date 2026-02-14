@@ -1,15 +1,12 @@
 from __future__ import annotations
-from .platform_checks import run_platform_checks
-@app.on_event("startup")
-async def _startup():
-    run_platform_checks()
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from bson import ObjectId
 
-from .db import col
+from .platform_checks import run_platform_checks
+from .db import col, db
 from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut
 from .matching import rank_candidates
 
@@ -22,6 +19,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def _startup():
+    run_platform_checks()
 
 def require_user(x_user_id: str | None) -> ObjectId:
     if not x_user_id:
