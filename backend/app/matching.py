@@ -32,7 +32,17 @@ def _role_score(me_roles: List[str], cand_roles: List[str], missing_roles: List[
 def _activity_score(last_active: datetime | None) -> Tuple[float, List[str]]:
     if not last_active:
         return -0.5, ["No recent activity signal"]
+    
+    # Ensure both datetimes are timezone-aware (UTC)
     now = datetime.now(timezone.utc)
+    
+    # If last_active is naive (no timezone), assume it's UTC
+    if last_active.tzinfo is None:
+        last_active = last_active.replace(tzinfo=timezone.utc)
+    # If it's aware but not UTC, convert to UTC
+    elif last_active.tzinfo != timezone.utc:
+        last_active = last_active.astimezone(timezone.utc)
+    
     age_hours = (now - last_active).total_seconds() / 3600
     if age_hours <= 24:
         return 2.0, ["Active today"]

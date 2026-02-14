@@ -81,10 +81,20 @@ export async function api<TResponse>(
     const maybeJson = text ? safeJson(text) : null;
 
     if (!res.ok) {
-      const msg =
-        (maybeJson && (maybeJson.error || maybeJson.message || maybeJson.detail)) ||
-        text ||
-        `Request failed (${res.status})`;
+      let msg: string;
+      if (maybeJson) {
+        // Handle Pydantic validation errors (422)
+        if (maybeJson.detail && Array.isArray(maybeJson.detail)) {
+          const errors = maybeJson.detail.map((e: any) => 
+            `${e.loc?.join('.') || 'field'}: ${e.msg || e.type || 'validation error'}`
+          ).join(', ');
+          msg = `Validation error: ${errors}`;
+        } else {
+          msg = maybeJson.error || maybeJson.message || maybeJson.detail || text || `Request failed (${res.status})`;
+        }
+      } else {
+        msg = text || `Request failed (${res.status})`;
+      }
       
       // If 400/401 with "Invalid X-User-Id" or "Missing X-User-Id", it's a session issue
       if ((res.status === 400 || res.status === 401) && 
