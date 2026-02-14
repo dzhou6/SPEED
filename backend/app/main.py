@@ -67,7 +67,7 @@ async def auth_demo(body: DemoAuthIn):
 async def upsert_profile(body: ProfileIn, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
     uid = require_user(x_user_id)
     users = col("users")
-    doc = profile.model_dump(exclude_none=True)
+    doc = body.model_dump(exclude_none=True)
     await users.update_one(
         {"_id": uid},
         {
@@ -151,8 +151,7 @@ async def recommendations(courseCode: str, x_user_id: str | None = Header(defaul
             "lastActiveAt": u.get("lastActiveAt"),
             "score": r["score"],
             "reasons": r["reasons"],
-        })
-    users.pop("contact", None)    
+        }) 
     return {"candidates": out}
 
 async def has_mutual_accept(courseCode: str, a: ObjectId, b: ObjectId) -> bool:
