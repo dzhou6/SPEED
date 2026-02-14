@@ -69,16 +69,15 @@ async def upsert_profile(body: ProfileIn, x_user_id: str | None = Header(default
     doc = body.model_dump(exclude_none=True)
     await users.update_one(
         {"_id": uid},
-        {
-            "$addToSet": {"courseCodes": body.courseCode},
-            "$set": {
-                "displayName": body.displayName,
-                "rolePrefs": body.rolePrefs,
-                "skills": body.skills,
-                "availability": body.availability,
-                "goals": body.goals,
-                "doc": doc
-            },
+        {"$addToSet": {"courseCodes": body.courseCode},
+        "$set": {
+            "displayName": body.displayName,
+            "rolePrefs": body.rolePrefs,
+            "skills": body.skills,
+            "availability": body.availability,
+            "goals": body.goals,
+            "contact": body.contact.model_dump(exclude_none=True) if body.contact else None,
+        },
         },
         upsert=True,
     )
