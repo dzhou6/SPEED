@@ -94,7 +94,7 @@ async def main():
         "materials": MATERIALS,
         "createdAt": datetime.now(timezone.utc),
     })
-    logger.info(f"✅ Created course with {len(MATERIALS)} materials")
+    logger.info(f"Created course with {len(MATERIALS)} materials")
 
     now = datetime.now(timezone.utc)
     # Vary last active times (some active today, some inactive)
@@ -130,13 +130,13 @@ async def main():
             "courseCode": DEMO_COURSE, 
             "lastActiveAt": last_active
         })
-        logger.info(f"✅ Seeded user: {name} ({', '.join(roles)})")
+        logger.info(f"Seeded user: {name} ({', '.join(roles)})")
 
-    logger.info(f"\n🎉 Demo data seeded successfully!")
+    logger.info(f"\nDemo data seeded successfully!")
     logger.info(f"Course: {DEMO_COURSE}")
     logger.info(f"Users: {len(USERS)}")
     logger.info(f"Materials: {len(MATERIALS)}")
-    print(f"\n✅ Seed complete! {len(USERS)} users and {len(MATERIALS)} materials ready for demo.")
+    print(f"\nSeed complete! {len(USERS)} users and {len(MATERIALS)} materials ready for demo.")
 
 if __name__ == "__main__":
     asyncio.run(main())

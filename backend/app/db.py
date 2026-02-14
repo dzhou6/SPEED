@@ -1,5 +1,5 @@
 from motor.motor_asyncio import AsyncIOMotorClient
-from motor.motor_asyncio import ServerSelectionTimeoutError
+from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 import logging
 from .config import MONGO_URI, MONGO_DB
 
@@ -16,10 +16,10 @@ async def check_connection():
     """Check if MongoDB connection is working"""
     try:
         await client.admin.command('ping')
-        logger.info(f"✅ Connected to MongoDB: {MONGO_DB}")
+        logger.info(f"Connected to MongoDB: {MONGO_DB}")
         return True
-    except ServerSelectionTimeoutError:
-        logger.error("❌ MongoDB connection timeout. Check your MONGO_URI and network settings.")
+    except (ServerSelectionTimeoutError, ConnectionFailure) as e:
+        logger.error(f"❌ MongoDB connection timeout: {e}")
         raise RuntimeError(
             "Cannot connect to MongoDB. Please check:\n"
             "1. MONGO_URI is correct in .env file\n"
