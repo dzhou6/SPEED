@@ -1,6 +1,9 @@
 from __future__ import annotations
 from .platform_checks import run_platform_checks
-run_platform_checks()
+@app.on_event("startup")
+async def _startup():
+    run_platform_checks()
+
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
