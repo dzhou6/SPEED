@@ -1,7 +1,15 @@
 services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
   backend:
+    depends_on: [mongo]
     build: ./backend
-    env_file: .env
+    env_file: .env.docker
     environment:
       - PYTHONUNBUFFERED=1
     ports:
@@ -17,7 +25,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    env_file: .env
+    env_file: .env.docker
     environment:
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000}
     ports:
@@ -26,3 +34,5 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+volumes:
+  mongo_data:
