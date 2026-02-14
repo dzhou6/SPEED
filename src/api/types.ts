@@ -21,11 +21,13 @@ export type Profile = {
 export type RecommendationUser = {
   userId: string;
   displayName: string;
-  roles: Role[];
+  rolePrefs?: Role[];         // Backend sends rolePrefs
+  roles?: Role[];              // Alias for compatibility
   skills: string[];
   availability: string[];
-  lastActive?: string;        // e.g. "active today"
-  reasons?: string[];         // "Why this match"
+  lastActiveAt?: string;       // Backend sends lastActiveAt (ISO datetime)
+  lastActive?: string;         // Formatted version (e.g. "active today")
+  reasons?: string[];          // "Why this match"
 };
 
 export type RecommendationsResponse = {
@@ -35,10 +37,14 @@ export type RecommendationsResponse = {
 export type PodMember = {
   userId: string;
   displayName: string;
-  roles?: Role[];
+  rolePrefs?: Role[];          // Backend sends rolePrefs
+  roles?: Role[];              // Alias for compatibility
   skills?: string[];
-  lastActive?: string;
-  isMutual?: boolean;         // unlocked contact if true (or your backend field)
+  availability?: string[];
+  lastActiveAt?: string;       // Backend sends lastActiveAt (ISO datetime)
+  lastActive?: string;         // Formatted version
+  isMutual?: boolean;          // Computed from unlockedContactIds
+  contactUnlocked?: boolean;   // Computed from unlockedContactIds
   contact?: {
     linkedin?: string;
     discord?: string;
@@ -47,17 +53,21 @@ export type PodMember = {
 };
 
 export type PodState = {
+  hasPod?: boolean;            // Backend sends hasPod: false when no pod
   podId?: string;
-  courseCode: string;
-  leaderUserId?: string;
+  courseCode?: string;
+  leaderId?: string;           // Backend sends leaderId
+  leaderUserId?: string;       // Alias for compatibility
   hubLink?: string;
   members: PodMember[];
+  unlockedContactIds?: string[]; // Backend sends array of unlocked user IDs
+  memberIds?: string[];        // Backend also sends memberIds
 };
 
 export type AskResponse = {
   layer: 1 | 2 | 3;
   answer: string;
-  links?: { title: string; url: string }[];
+  links?: string[] | { title: string; url: string }[]; // Backend sends string[], frontend expects objects
 };
 
 export type TicketResponse = {

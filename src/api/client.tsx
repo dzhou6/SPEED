@@ -13,13 +13,22 @@ export async function api<TResponse>(
   method: HttpMethod = "GET",
   body?: unknown
 ): Promise<TResponse> {
+  // Get userId from localStorage for API calls
+  const userId = localStorage.getItem("cc_userId");
+  
   const url = `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
   const { controller, clear } = withTimeout(12000);
 
   try {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    // Backend requires X-User-Id header for authenticated endpoints
+    if (userId) {
+      headers["X-User-Id"] = userId;
+    }
+    
     const res = await fetch(url, {
       method,
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
     });

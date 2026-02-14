@@ -67,7 +67,10 @@ export default function MatchFeed() {
   const [loading, setLoading] = useState(false);
   const [swiping, setSwiping] = useState<string | null>(null);
 
-  const hasPod = useMemo(() => !!pod?.podId && (pod.members?.length || 0) > 0, [pod]);
+  const hasPod = useMemo(() => {
+    if (pod?.hasPod === false) return false;
+    return !!pod?.podId && (pod.members?.length || 0) > 0;
+  }, [pod]);
 
   async function load() {
     if (!courseCode) return;
@@ -177,7 +180,7 @@ export default function MatchFeed() {
                 <div>
                   <div className="name">{u.displayName || "Anonymous"}</div>
                   <div className="muted small">
-                    Roles: {pickTop(u.roles, 2).join(", ") || "n/a"}
+                    Roles: {pickTop(u.roles || u.rolePrefs, 2).join(", ") || "n/a"}
                   </div>
                   <div className="muted small">
                     Skills: {pickTop(u.skills, 4).join(", ") || "n/a"}
@@ -186,7 +189,7 @@ export default function MatchFeed() {
                     Availability: {pickTop(u.availability, 2).join(" • ") || "n/a"}
                   </div>
                 </div>
-                <span className="badge">{lastActiveBadge(u.lastActive)}</span>
+                <span className="badge">{lastActiveBadge(u.lastActive || u.lastActiveAt)}</span>
               </div>
 
               {u.reasons?.length ? (

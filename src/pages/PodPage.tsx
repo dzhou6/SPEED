@@ -5,10 +5,12 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
 
-function isUnlocked(meId: string, m: PodMember) {
+function isUnlocked(meId: string, m: PodMember, unlockedIds?: string[]) {
   if (m.userId === meId) return true;
   if (m.contactUnlocked === true) return true;
   if (m.mutualAccepted === true) return true;
+  // Check if userId is in unlockedContactIds array from backend
+  if (unlockedIds?.includes(m.userId)) return true;
   // Some backends might embed something else; default locked.
   return false;
 }
@@ -41,11 +43,35 @@ export default function PodPage() {
 
   const meLeader = useMemo(() => {
     if (!userId) return false;
-    return pod?.leaderUserId === userId;
-  }, [pod?.leaderUserId, userId]);
+    return pod?.leaderId === userId || pod?.leaderUserId === userId;
+  }, [pod?.leaderId, pod?.leaderUserId, userId]);
 
-  const members = useMemo(() => pod?.members || [], [pod?.members]);
-  const hasPod = useMemo(() => !!pod?.podId && members.length > 0, [pod?.podId, members.length]);
+  const members = useMemo(() => {
+    const mems = pod?.members || [];
+    // Map rolePrefs to roles for compatibility
+    return mems.map(m => ({
+      ...m,
+      roles: m.roles || m.rolePrefs,
+      lastActive: m.lastActive || (m.lastActiveAt ? formatLastActive(m.lastActiveAt) : undefined)
+    }));
+  }, [pod?.members]);
+  const hasPod = useMemo(() => {
+    if (pod?.hasPod === false) return false;
+    return !!pod?.podId && members.length > 0;
+  }, [pod?.hasPod, pod?.podId, members.length]);
+  
+  function formatLastActive(iso: string): string {
+    try {
+      const d = new Date(iso);
+      const diffMs = Date.now() - d.getTime();
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      if (days <= 0) return "active today";
+      if (days === 1) return "active 1d ago";
+      return `active ${days}d ago`;
+    } catch {
+      return iso;
+    }
+  }
 
   async function fetchPod(showErrors = false) {
     if (!courseCode) return;
@@ -165,7 +191,7 @@ export default function PodPage() {
             <div className="label">Pod members</div>
             <div className="grid">
               {members.map((m) => {
-                const unlocked = userId ? isUnlocked(userId, m) : false;
+                const unlocked = userId ? isUnlocked(userId, m, pod?.unlockedContactIds) : false;
                 return (
                   <div key={m.userId} className="memberCard">
                     <div className="name">{m.displayName || "Anonymous"}</div>
