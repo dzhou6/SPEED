@@ -1,9 +1,15 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import type { ProfileUpsertRequest, RolePref } from "../api/types";
+import type { RolePref } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { toast } from "../components/Toast";
+
+// Check if string is a valid MongoDB ObjectId format (24 hex characters)
+function isValidObjectId(id: string | null): boolean {
+  if (!id) return false;
+  return /^[0-9a-fA-F]{24}$/.test(id);
+}
 
 const ROLE_OPTIONS: RolePref[] = ["Frontend", "Backend", "Matching", "Platform"];
 
@@ -48,27 +54,69 @@ export default function ProfileBuilder() {
     set(list.includes(item) ? list.filter((x) => x !== item) : [...list, item]);
   }
 
+  // Redirect if userId is invalid - check immediately on mount
+  useEffect(() => {
+    if (userId && !isValidObjectId(userId)) {
+      console.log("Invalid userId detected, redirecting to join page");
+      localStorage.removeItem("cc_userId");
+      localStorage.removeItem("cc_courseCode");
+      localStorage.removeItem("cc_displayName");
+      toast("Invalid session. Please join the course again.", "error");
+      nav("/", { replace: true });
+    }
+  }, [userId, nav]);
+
   async function save() {
-    if (!userId || !courseCode) return toast("Missing session. Go back to Join.", "error");
+    if (!userId || !courseCode) {
+      toast("Missing session. Go back to Join.", "error");
+      nav("/");
+      return;
+    }
+    
+    // Validate userId format before making API call
+    if (!isValidObjectId(userId)) {
+      toast("Invalid session. Please join the course again.", "error");
+      localStorage.removeItem("cc_userId");
+      localStorage.removeItem("cc_courseCode");
+      localStorage.removeItem("cc_displayName");
+      nav("/");
+      return;
+    }
+    
     if (!canSave) return toast("Choose 1–2 roles.", "error");
 
     setLoading(true);
     try {
-      const payload: ProfileUpsertRequest = {
+      // Backend expects rolePrefs (not roles) and doesn't need userId in body (uses header)
+      const payload = {
         courseCode,
-        userId,
         displayName: displayName.trim() || undefined,
-        roles,
+        rolePrefs: roles,  // Backend expects rolePrefs
         skills,
         availability,
         goals: goals.trim() || undefined,
       };
-      await api("/profile", "POST", payload);
+      console.log("Saving profile with userId:", userId, "courseCode:", courseCode, "userId length:", userId?.length);
+      // Pass userId explicitly to ensure we use the component's state value
+      await api("/profile", "POST", payload, userId);
       if (displayName.trim()) setStoredName(displayName.trim());
       toast("Profile saved. Swipe matches.", "success");
       nav("/feed");
       } catch (e: any) {
     const msg = String(e?.message || "");
+    console.error("Profile save error:", msg, e);
+    
+    // Handle invalid session error - redirect to join
+    if (msg.includes("Invalid session") || msg.includes("No session found")) {
+      // Clear localStorage only on session errors
+      localStorage.removeItem("cc_userId");
+      localStorage.removeItem("cc_courseCode");
+      localStorage.removeItem("cc_displayName");
+      toast(msg, "error");
+      nav("/");
+      return;
+    }
+    
     const isConnRefused =
       msg.includes("Failed to fetch") ||
       msg.includes("ERR_CONNECTION_REFUSED") ||
