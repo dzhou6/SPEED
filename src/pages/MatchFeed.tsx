@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, qs } from "../api/client";
-import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest } from "../api/types";
+import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest, CourseInfo } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
@@ -64,6 +64,7 @@ export default function MatchFeed() {
 
   const [candidates, setCandidates] = useState<RecommendationUser[]>([]);
   const [pod, setPod] = useState<PodState | null>(null);
+  const [courseInfo, setCourseInfo] = useState<CourseInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [swiping, setSwiping] = useState<string | null>(null);
 
@@ -117,6 +118,21 @@ export default function MatchFeed() {
 }
 
   }
+
+  // Load course info
+  useEffect(() => {
+    async function loadCourseInfo() {
+      if (!courseCode) return;
+      try {
+        const course = await api<CourseInfo>(`/course${qs({ courseCode })}`, "GET");
+        setCourseInfo(course);
+      } catch (e) {
+        // Course info is optional, don't show error
+        console.log("Course info not available");
+      }
+    }
+    loadCourseInfo();
+  }, [courseCode]);
 
   // Load recommendations once on mount
   useEffect(() => {
@@ -172,7 +188,29 @@ export default function MatchFeed() {
       ) : null}
 
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div className="muted">Course: <b>{courseCode}</b></div>
+        <div>
+          <div className="muted">
+            Course: <b>{courseCode}</b>
+            {courseInfo?.courseName && ` - ${courseInfo.courseName}`}
+          </div>
+          {courseInfo?.syllabusText && (
+            <details style={{ marginTop: "8px", fontSize: "0.9em" }}>
+              <summary style={{ cursor: "pointer", color: "var(--primary2)", fontWeight: "bold" }}>Course Description</summary>
+              <div style={{ 
+                marginTop: "8px", 
+                padding: "12px", 
+                background: "var(--card)", 
+                borderRadius: "8px", 
+                whiteSpace: "pre-wrap",
+                color: "var(--text)",
+                lineHeight: "1.5",
+                border: "1px solid var(--border)"
+              }}>
+                {courseInfo.syllabusText}
+              </div>
+            </details>
+          )}
+        </div>
         <button 
           className="btn" 
           onClick={() => {

@@ -93,3 +93,22 @@ export type TicketResponse = {
   ticketId: string;
   createdAt?: string;
 };
+
+export type CourseInfo = {
+  courseCode: string;
+  courseName?: string;
+  syllabusText?: string;
+  professor?: string;
+  location?: string;
+  classPolicy?: string;
+  latePolicy?: string;
+  officeHours?: string;
+};
+
+export type UserCoursesResponse = {
+  courseCodes: string[];
+  courses?: Array<{
+    courseCode: string;
+    courseName?: string;
+  }>;
+};

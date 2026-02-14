@@ -8,7 +8,7 @@ from bson import ObjectId
 import logging
 from .platform_checks import run_platform_checks
 from .db import col, db, check_connection
-from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut
+from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut, CourseOut
 from .matching import rank_candidates
 
 # Configure logging
@@ -58,10 +58,30 @@ async def health():
     except Exception as e:
         return {"ok": False, "db": "down", "error": str(e)}
 
+@app.get("/course", response_model=CourseOut)
+async def get_course(courseCode: str):
+    """Get course information including name, description, professor, location, and policies"""
+    courses = col("courses")
+    c = await courses.find_one({"courseCode": courseCode})
+    if not c:
+        raise HTTPException(404, "Course not found")
+    return CourseOut(
+        courseCode=courseCode,
+        courseName=c.get("courseName"),
+        syllabusText=c.get("syllabusText"),
+        professor=c.get("professor"),
+        location=c.get("location"),
+        classPolicy=c.get("classPolicy"),
+        latePolicy=c.get("latePolicy"),
+        officeHours=c.get("officeHours")
+    )
+
 
 @app.post("/auth/demo", response_model=DemoAuthOut)
 async def auth_demo(body: DemoAuthIn):
     users = col("users")
+    # Check if user already exists (by checking if they have any course)
+    # For demo, we'll create new user each time, but in real app you'd check by email/auth
     doc = {
         "displayName": body.displayName or f"User{str(ObjectId())[-4:]}",
         "courseCodes": [body.courseCode],
@@ -73,6 +93,63 @@ async def auth_demo(body: DemoAuthIn):
     }
     res = await users.insert_one(doc)
     return DemoAuthOut(userId=str(res.inserted_id), displayName=doc["displayName"])
+
+@app.get("/user/courses")
+async def get_user_courses(x_user_id: str | None = Header(default=None, alias="X-User-Id")):
+    """Get all courses the user is enrolled in"""
+    try:
+        uid = require_user(x_user_id)
+        users = col("users")
+        courses = col("courses")
+        
+        user = await users.find_one({"_id": uid})
+        if not user:
+            raise HTTPException(404, "User not found")
+        
+        user_course_codes = user.get("courseCodes", [])
+        if not user_course_codes:
+            return {"courseCodes": []}
+        
+        # Get course details for each course code
+        course_list = []
+        async for course in courses.find({"courseCode": {"$in": user_course_codes}}):
+            course_list.append({
+                "courseCode": course.get("courseCode"),
+                "courseName": course.get("courseName")
+            })
+        
+        # Ensure we return all courseCodes, even if some don't have details
+        logger.info(f"User {uid} has courses: {user_course_codes}, found details for: {[c['courseCode'] for c in course_list]}")
+        return {"courseCodes": user_course_codes, "courses": course_list}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user courses: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get courses: {str(e)}")
+
+@app.post("/user/add-course")
+async def add_course_to_user(courseCode: str, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
+    """Add a course to user's enrolled courses"""
+    try:
+        uid = require_user(x_user_id)
+        users = col("users")
+        
+        # Add course to user's courseCodes array
+        result = await users.update_one(
+            {"_id": uid},
+            {"$addToSet": {"courseCodes": courseCode}},
+            upsert=False
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(404, "User not found")
+        
+        return {"ok": True, "courseCode": courseCode}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding course: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to add course: {str(e)}")
 
 @app.post("/profile")
 async def upsert_profile(body: ProfileIn, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
