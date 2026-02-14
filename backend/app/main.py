@@ -5,10 +5,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from bson import ObjectId
 
+import logging
 from .platform_checks import run_platform_checks
-from .db import col, db
+from .db import col, db, check_connection
 from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut
 from .matching import rank_candidates
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="CourseCupid MVP")
 
@@ -22,7 +30,10 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def _startup():
+    logger.info("Starting CourseCupid API...")
     run_platform_checks()
+    await check_connection()
+    logger.info("✅ Application startup complete")
 
 def require_user(x_user_id: str | None) -> ObjectId:
     if not x_user_id:
@@ -60,23 +71,29 @@ async def auth_demo(body: DemoAuthIn):
 
 @app.post("/profile")
 async def upsert_profile(body: ProfileIn, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
-    uid = require_user(x_user_id)
-    users = col("users")
-    await users.update_one(
-        {"_id": uid},
-        {
-            "$addToSet": {"courseCodes": body.courseCode},
-            "$set": {
-                "displayName": body.displayName,
-                "rolePrefs": body.rolePrefs,
-                "skills": body.skills,
-                "availability": body.availability,
-                "goals": body.goals,
+    try:
+        uid = require_user(x_user_id)
+        users = col("users")
+        await users.update_one(
+            {"_id": uid},
+            {
+                "$addToSet": {"courseCodes": body.courseCode},
+                "$set": {
+                    "displayName": body.displayName,
+                    "rolePrefs": body.rolePrefs,
+                    "skills": body.skills,
+                    "availability": body.availability,
+                    "goals": body.goals,
+                },
             },
-        },
-        upsert=False,
-    )
-    return {"ok": True}
+            upsert=False,
+        )
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error saving profile: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save profile: {str(e)}")
 
 @app.post("/heartbeat")
 async def heartbeat(courseCode: str, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
@@ -99,10 +116,14 @@ async def get_last_active_map(courseCode: str):
 
 @app.get("/recommendations")
 async def recommendations(courseCode: str, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
-    uid = require_user(x_user_id)
-    users = col("users")
-    swipes = col("swipes")
-    pods = col("pods")
+    try:
+        uid = require_user(x_user_id)
+        users = col("users")
+        swipes = col("swipes")
+        pods = col("pods")
+    except Exception as e:
+        logger.error(f"Error in recommendations: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     me = await users.find_one({"_id": uid})
     if not me:
@@ -218,9 +239,15 @@ async def swipe(body: SwipeIn, x_user_id: str | None = Header(default=None, alia
 
 @app.get("/pod")
 async def pod(courseCode: str, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
-    uid = require_user(x_user_id)
-    pods = col("pods")
-    users = col("users")
+    try:
+        uid = require_user(x_user_id)
+        pods = col("pods")
+        users = col("users")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in pod endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
     p = await pods.find_one({"courseCode": courseCode, "memberIds": uid})
     if not p:
