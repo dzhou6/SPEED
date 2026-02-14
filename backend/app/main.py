@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from bson import ObjectId
 
-from .db import col
+from .platform_checks import run_platform_checks
+from .db import col, db
 from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut
 from .matching import rank_candidates
 
@@ -19,6 +20,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def _startup():
+    run_platform_checks()
+
 def require_user(x_user_id: str | None) -> ObjectId:
     if not x_user_id:
         raise HTTPException(status_code=401, detail="Missing X-User-Id")
@@ -27,9 +32,16 @@ def require_user(x_user_id: str | None) -> ObjectId:
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid X-User-Id")
 
+from .db import db
+
 @app.get("/health")
 async def health():
-    return {"ok": True}
+    try:
+        await db.command("ping")
+        return {"ok": True, "db": "ok"}
+    except Exception as e:
+        return {"ok": False, "db": "down", "error": str(e)}
+
 
 @app.post("/auth/demo", response_model=DemoAuthOut)
 async def auth_demo(body: DemoAuthIn):
