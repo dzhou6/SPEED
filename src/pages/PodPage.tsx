@@ -102,10 +102,12 @@ export default function PodPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Poll pod every 3 seconds
+  // Poll pod every 5 seconds (reduced frequency to avoid server spam)
   useInterval(() => {
-    fetchPod(false);
-  }, 3000);
+    if (!loadingPod) { // Don't poll if already loading
+      fetchPod(false);
+    }
+  }, 5000);
 
   // Heartbeat every 20 seconds
   useInterval(() => {

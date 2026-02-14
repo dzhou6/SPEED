@@ -74,10 +74,17 @@ export default function MatchFeed() {
 
   async function load() {
     if (!courseCode) return;
+    // Prevent multiple simultaneous loads
+    if (loading) {
+      console.log("Load already in progress, skipping...");
+      return;
+    }
     setLoading(true);
+    console.log("Loading recommendations...");
    try {
   const rec = await api<RecommendationsResponse>(`/recommendations${qs({ courseCode })}`, "GET");
   const list = rec?.candidates || [];
+  console.log(`Loaded ${list.length} candidates`);
 
   // If backend returns empty, fall back to demo candidates
   setCandidates(list.length ? list : DEMO_CANDIDATES);
@@ -111,25 +118,29 @@ export default function MatchFeed() {
 
   }
 
+  // Load recommendations once on mount
   useEffect(() => {
-    load();
+    if (courseCode) {
+      load();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [courseCode]); // Only reload if courseCode changes
 
-  // Poll pod every 5s while in feed
+  // Poll pod every 10s while in feed (but don't reload recommendations)
+  // Only poll if user doesn't have a pod yet (to detect new matches)
   useInterval(async () => {
-    if (!courseCode) return;
+    if (!courseCode || hasPod) return; // Stop polling if already in a pod
     try {
       const p = await api<PodState>(`/pod${qs({ courseCode })}`, "GET");
       setPod(p || null);
       if (p?.podId && (p.members?.length || 0) > 0) {
-        toast("It’s a match 💘 Pod formed!", "success");
+        toast("It's a match 💘 Pod formed!", "success");
         nav("/pod");
       }
     } catch {
       // ignore transient polling errors
     }
-  }, 5000);
+  }, 10000); // Increased to 10 seconds to reduce server load
 
   async function swipe(targetUserId: string, decision: "accept" | "pass") {
     if (!userId || !courseCode) return toast("Missing session.", "error");
@@ -162,7 +173,14 @@ export default function MatchFeed() {
 
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <div className="muted">Course: <b>{courseCode}</b></div>
-        <button className="btn" onClick={load} disabled={loading}>
+        <button 
+          className="btn" 
+          onClick={() => {
+            console.log("Manual refresh triggered");
+            load();
+          }} 
+          disabled={loading}
+        >
           {loading ? "Refreshing..." : "Refresh"}
         </button>
       </div>

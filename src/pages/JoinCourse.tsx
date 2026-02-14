@@ -19,33 +19,46 @@ export default function JoinCourse() {
     if (!normalized) return toast("Enter a course code.", "error");
     setLoading(true);
     try {
-      // Works whether backend expects {courseCode} or ignores it.
+      // Clear any old invalid userIds first
+      const oldUserId = localStorage.getItem("cc_userId");
+      if (oldUserId && !/^[0-9a-fA-F]{24}$/.test(oldUserId)) {
+        localStorage.removeItem("cc_userId");
+        localStorage.removeItem("cc_courseCode");
+        localStorage.removeItem("cc_displayName");
+      }
+      
+      // Call backend to create/get user
       const res = await api<DemoAuthResponse>("/auth/demo", "POST", { courseCode: normalized });
       if (!res?.userId) throw new Error("Backend did not return userId.");
+      
+      // Validate the userId is a valid ObjectId
+      if (!/^[0-9a-fA-F]{24}$/.test(res.userId)) {
+        throw new Error("Backend returned invalid userId format. Please try again.");
+      }
+      
       setStoredCourse(normalized);
       setUserId(res.userId);
       if (res.displayName) setDisplayName(res.displayName);
       toast("Joined! Build your profile.", "success");
       nav("/profile");
     } catch (e: any) {
-    // OFFLINE DEMO FALLBACK: if backend isn't running, still proceed for demo
     const msg = String(e?.message || "");
     const isConnRefused =
       msg.includes("Failed to fetch") ||
       msg.includes("ERR_CONNECTION_REFUSED") ||
       msg.includes("NetworkError");
 
+    // Only use offline fallback if backend is truly unreachable
+    // But note: this creates invalid userIds that won't work with real backend
     if (isConnRefused) {
-      const demoUserId = `demo_${Math.random().toString(16).slice(2)}`;
-      setStoredCourse(normalized);
-      setUserId(demoUserId);
-      setDisplayName("Demo User");
-      toast("Backend offline — continuing in demo mode.", "info");
-      nav("/profile");
+      toast("Backend is offline. Please start the backend server first.", "error");
+      // Don't create demo userId - it won't work with backend
+      // User needs to start backend and try again
       return;
     }
 
-    toast(e?.message || "Join failed.", "error");
+    // For other errors (like 400, 500, etc), show the error
+    toast(e?.message || "Join failed. Make sure backend is running.", "error");
   } finally {
       setLoading(false);
     }

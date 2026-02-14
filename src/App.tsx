@@ -6,10 +6,28 @@ import MatchFeed from "./pages/MatchFeed";
 import PodPage from "./pages/PodPage";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
+// Check if string is a valid MongoDB ObjectId format (24 hex characters)
+function isValidObjectId(id: string | null): boolean {
+  if (!id) return false;
+  // MongoDB ObjectId is 24 hex characters
+  return /^[0-9a-fA-F]{24}$/.test(id);
+}
+
 function RequireSession({ children }: { children: JSX.Element }) {
   const [userId] = useLocalStorage<string | null>("cc_userId", null);
   const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
-  if (!userId || !courseCode) return <Navigate to="/" replace />;
+  
+  // Validate userId is a valid ObjectId format (backend requirement)
+  if (!userId || !courseCode || !isValidObjectId(userId)) {
+    // Clear invalid session data
+    if (userId && !isValidObjectId(userId)) {
+      localStorage.removeItem("cc_userId");
+      localStorage.removeItem("cc_courseCode");
+      localStorage.removeItem("cc_displayName");
+    }
+    return <Navigate to="/" replace />;
+  }
+  
   return children;
 }
 
