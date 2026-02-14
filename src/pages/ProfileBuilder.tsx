@@ -54,14 +54,19 @@ export default function ProfileBuilder() {
 
     setLoading(true);
     try {
-      const payload: ProfileUpsertRequest = {
-        courseCode,
-        userId,
-        displayName: displayName.trim() || undefined,
-        roles,
-        skills,
-        availability,
-        goals: goals.trim() || undefined,
+     const payload: ProfileUpsertRequest = {
+  courseCode,
+  userId,
+  displayName: displayName.trim() || undefined,
+  roles,
+  skills,
+  availability,
+  goals: goals.trim() || undefined,
+  contact: {
+    discord: contactDiscord.trim() || undefined,
+    linkedin: contactLinkedIn.trim() || undefined,
+  }
+
       };
       await api("/profile", "POST", payload);
       if (displayName.trim()) setStoredName(displayName.trim());

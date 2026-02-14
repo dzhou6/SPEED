@@ -7,6 +7,25 @@ export type Role = "Frontend" | "Backend" | "Matching" | "Platform";
 export type RolePref = "Frontend" | "Backend" | "Matching" | "Platform";
 
 
+// types.ts
+
+export type ContactInfo = {
+  discord?: string;
+  linkedin?: string;
+};
+
+export type ProfileUpsertRequest = {
+  courseCode: string;
+  userId: string;
+
+  displayName?: string;
+  roles: string[];
+  skills: string[];
+  availability: string[];
+  goals?: string;
+
+  contact?: ContactInfo; // ✅ add this
+};
 
 export type Profile = {
   userId: string;
