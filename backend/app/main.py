@@ -9,11 +9,10 @@ from .platform_checks import run_platform_checks
 from .db import col, db
 from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut
 from .matching import rank_candidates
-from app.ai_routes import router as ai_router
-app.include_router(ai_router)
-
-
 app = FastAPI(title="CourseCupid MVP")
+
+from .ai_routes import router as ai_router
+app.include_router(ai_router)
 
 
 

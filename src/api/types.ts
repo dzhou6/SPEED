@@ -14,6 +14,7 @@ export type ContactInfo = {
   linkedin?: string;
 };
 
+
 export type ProfileUpsertRequest = {
   courseCode: string;
   userId: string;
@@ -23,8 +24,7 @@ export type ProfileUpsertRequest = {
   skills: string[];
   availability: string[];
   goals?: string;
-
-  contact?: ContactInfo; // ✅ add this
+  contact?: { discord?: string; linkedin?: string };
 };
 
 export type Profile = {

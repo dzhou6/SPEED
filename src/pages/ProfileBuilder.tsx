@@ -49,30 +49,31 @@ export default function ProfileBuilder() {
   }
 
   async function save() {
-    if (!userId || !courseCode) return toast("Missing session. Go back to Join.", "error");
-    if (!canSave) return toast("Choose 1–2 roles.", "error");
+  if (!userId || !courseCode) return toast("Missing session. Go back to Join.", "error");
+  if (!canSave) return toast("Choose 1–2 roles.", "error");
 
-    setLoading(true);
-    try {
-     const payload: ProfileUpsertRequest = {
-  courseCode,
-  userId,
-  displayName: displayName.trim() || undefined,
-  roles,
-  skills,
-  availability,
-  goals: goals.trim() || undefined,
-  contact: {
-    discord: contactDiscord.trim() || undefined,
-    linkedin: contactLinkedIn.trim() || undefined,
-  }
+  setLoading(true);
+  try {
+    const payload: ProfileUpsertRequest = {
+      courseCode,
+      userId,
+      displayName: displayName.trim() || undefined,
+      roles,
+      skills,
+      availability,
+      goals: goals.trim() || undefined,
+      contact: {
+        discord: contactDiscord.trim() || undefined,
+        linkedin: contactLinkedIn.trim() || undefined,
+      },
+    };
 
-      };
-      await api("/profile", "POST", payload);
-      if (displayName.trim()) setStoredName(displayName.trim());
-      toast("Profile saved. Swipe matches.", "success");
-      nav("/feed");
-      } catch (e: any) {
+    await api("/profile", "POST", payload);
+
+    if (displayName.trim()) setStoredName(displayName.trim());
+    toast("Profile saved. Swipe matches.", "success");
+    nav("/feed");
+  } catch (e: any) {
     const msg = String(e?.message || "");
     const isConnRefused =
       msg.includes("Failed to fetch") ||
@@ -96,13 +97,11 @@ export default function ProfileBuilder() {
     }
 
     toast(e?.message || "Save failed.", "error");
+  } finally {
+    setLoading(false);
   }
-
-
-
-      setLoading(false);
-    }
-  
+}
+ 
 
   return (
     <div className="card">
