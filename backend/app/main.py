@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="CourseCupid MVP")
 
+from .ai_routes import router as ai_router
+app.include_router(ai_router)
+
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -74,21 +79,22 @@ async def upsert_profile(body: ProfileIn, x_user_id: str | None = Header(default
     try:
         uid = require_user(x_user_id)
         users = col("users")
+
+        doc = body.model_dump(exclude_none=True)
+    # we don't want these as normal fields if you're using courseCodes + header user id
+        doc.pop("courseCode", None)
+        doc.pop("userId", None)
+
         await users.update_one(
             {"_id": uid},
             {
                 "$addToSet": {"courseCodes": body.courseCode},
-                "$set": {
-                    "displayName": body.displayName,
-                    "rolePrefs": body.rolePrefs,
-                    "skills": body.skills,
-                    "availability": body.availability,
-                    "goals": body.goals,
-                },
+                "$set": doc,
             },
-            upsert=False,
+            upsert=True,
         )
         return {"ok": True}
+
     except HTTPException:
         raise
     except Exception as e:
@@ -165,7 +171,7 @@ async def recommendations(courseCode: str, x_user_id: str | None = Header(defaul
             "lastActiveAt": u.get("lastActiveAt"),
             "score": r["score"],
             "reasons": r["reasons"],
-        })
+        }) 
     return {"candidates": out}
 
 async def has_mutual_accept(courseCode: str, a: ObjectId, b: ObjectId) -> bool:

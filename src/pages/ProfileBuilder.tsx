@@ -67,42 +67,47 @@ export default function ProfileBuilder() {
   }, [userId, nav]);
 
   async function save() {
-    if (!userId || !courseCode) {
-      toast("Missing session. Go back to Join.", "error");
-      nav("/");
-      return;
-    }
-    
-    // Validate userId format before making API call
-    if (!isValidObjectId(userId)) {
-      toast("Invalid session. Please join the course again.", "error");
-      localStorage.removeItem("cc_userId");
-      localStorage.removeItem("cc_courseCode");
-      localStorage.removeItem("cc_displayName");
-      nav("/");
-      return;
-    }
-    
-    if (!canSave) return toast("Choose 1–2 roles.", "error");
+if (!userId || !courseCode) {
+  toast("Missing session. Go back to Join.", "error");
+  nav("/");
+  return;
+}
 
-    setLoading(true);
-    try {
-      // Backend expects rolePrefs (not roles) and doesn't need userId in body (uses header)
-      const payload = {
-        courseCode,
-        displayName: displayName.trim() || undefined,
-        rolePrefs: roles,  // Backend expects rolePrefs
-        skills,
-        availability,
-        goals: goals.trim() || undefined,
-      };
-      console.log("Saving profile with userId:", userId, "courseCode:", courseCode, "userId length:", userId?.length);
-      // Pass userId explicitly to ensure we use the component's state value
-      await api("/profile", "POST", payload, userId);
-      if (displayName.trim()) setStoredName(displayName.trim());
-      toast("Profile saved. Swipe matches.", "success");
-      nav("/feed");
-      } catch (e: any) {
+// Validate userId format before making API call
+if (!isValidObjectId(userId)) {
+  toast("Invalid session. Please join the course again.", "error");
+  localStorage.removeItem("cc_userId");
+  localStorage.removeItem("cc_courseCode");
+  localStorage.removeItem("cc_displayName");
+  nav("/");
+  return;
+}
+
+if (!canSave) return toast("Choose 1–2 roles.", "error");
+
+setLoading(true);
+try {
+  // Backend expects rolePrefs and uses header X-User-Id (so pass userId to api() for header)
+  const payload = {
+    courseCode,
+    displayName: displayName.trim() || undefined,
+    rolePrefs: roles,
+    skills,
+    availability,
+    goals: goals.trim() || undefined,
+    contact: {
+      discord: contactDiscord.trim() || undefined,
+      linkedin: contactLinkedIn.trim() || undefined,
+    },
+  };
+
+  await api("/profile", "POST", payload, userId);
+
+  if (displayName.trim()) setStoredName(displayName.trim());
+  toast("Profile saved. Swipe matches.", "success");
+  nav("/feed");
+} catch (e: any) {
+
     const msg = String(e?.message || "");
     console.error("Profile save error:", msg, e);
     
@@ -139,13 +144,11 @@ export default function ProfileBuilder() {
     }
 
     toast(e?.message || "Save failed.", "error");
+  } finally {
+    setLoading(false);
   }
-
-
-
-      setLoading(false);
-    }
-  
+}
+ 
 
   return (
     <div className="card">

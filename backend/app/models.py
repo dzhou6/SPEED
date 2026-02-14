@@ -3,6 +3,20 @@ from typing import List, Optional, Literal
 
 Role = Literal["Frontend", "Backend", "Matching", "Platform"]
 
+from pydantic import BaseModel, HttpUrl
+from typing import Optional
+
+class ContactInfo(BaseModel):
+    discord: Optional[str] = None
+    linkedin: Optional[HttpUrl] = None  # validates URL format
+
+class UserProfileIn(BaseModel):
+    displayName: str
+    rolePrefs: list[str]
+    skills: list[str]
+    availability: list[str] = []
+    contact: Optional[ContactInfo] = None
+
 class DemoAuthIn(BaseModel):
     courseCode: str
     displayName: Optional[str] = None
