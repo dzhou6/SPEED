@@ -80,6 +80,7 @@ export interface PodState {
   members?: PodMember[];
 
   leaderUserId?: string;
+  leaderId?: string;
   hubLink?: string | null;
 
   unlockedContactIds?: string[];

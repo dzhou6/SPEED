@@ -52,8 +52,8 @@ export default function PodPage() {
 
   const meLeader = useMemo(() => {
   if (!userId) return false;
-  return pod?.leaderUserId === userId;
-}, [pod?.leaderUserId, userId]);
+  return (pod?.leaderId ?? pod?.leaderUserId) === userId;
+}, [pod?.leaderId, pod?.leaderUserId, userId]);
 
 
 const members = useMemo<PodMemberView[]>(() => {

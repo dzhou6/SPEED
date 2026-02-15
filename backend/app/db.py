@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 import certifi
@@ -28,18 +26,27 @@ def _parse_bool(v: str | None) -> bool | None:
 
 
 def _should_use_tls(uri: str) -> bool:
-    # explicit override
+    # Explicit override (useful for local Mongo or weird corp proxies)
     override = _parse_bool(os.getenv("MONGO_TLS"))
     if override is not None:
         return override
 
-    u = uri.lower()
+    u = (uri or "").lower()
+
+    # If someone explicitly turned it off in the URI, respect it.
+    if "tls=false" in u or "ssl=false" in u:
+        return False
+
+    # Atlas / SRV almost always wants TLS.
     if u.startswith("mongodb+srv://"):
         return True
     if "mongodb.net" in u:
         return True
+
+    # If it’s explicitly enabled in the URI, do it.
     if "tls=true" in u or "ssl=true" in u:
         return True
+
     return False
 
 

@@ -98,6 +98,18 @@ const [courseCode] = useLocalStorage<string>("cc_courseCode", "");
     nav("/pod");
   }
 } catch (e: any) {
+  const msg = String(e?.message || "");
+  const isConnRefused =
+    msg.includes("Failed to fetch") ||
+    msg.includes("ERR_CONNECTION_REFUSED") ||
+    msg.includes("NetworkError");
+
+  if (isConnRefused) {
+    setCandidates(DEMO_CANDIDATES);
+    toast("Backend offline — using demo matches.", "info");
+    return;
+  }
+
   toast(e?.message || "Failed to load matches.", "error");
 } finally {
   setLoading(false);

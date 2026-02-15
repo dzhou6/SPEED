@@ -4,12 +4,11 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from bson import ObjectId
-from pydantic import BaseModel
 
 import logging
 from .platform_checks import run_platform_checks
 from .db import col, db, check_connection
-from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut
+from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut, TicketIn
 from .matching import rank_candidates
 
 # Configure logging
@@ -348,7 +347,7 @@ async def ask(body: AskIn, x_user_id: str | None = Header(default=None, alias="X
         syll = (c.get("syllabusText") or "").strip()
         if not syll:
             return AskOut(layer=1, answer="(Layer 1 Logistics) No syllabus text available.", links=[])
-        return AskOut(layer=1, answer=f"(Layer 1 Logistics)\n\n{syll[:220]}...", links=[])
+        return AskOut(layer=1, answer=f"(Layer 1 Logistics)\n\n“{syll[:220]}...”", links=[])
 
     if layer == 2:
         mats = c.get("materials", [])[:10]
@@ -362,7 +361,7 @@ async def ask(body: AskIn, x_user_id: str | None = Header(default=None, alias="X
                 picks.append(m)
         if not picks:
             picks = mats[:2]
-        links = [p["url"] for p in picks[:2] if p.get("url")]
+        links = [p.get("url") for p in picks[:2] if p.get("url")]
         titles = [p.get("title", "Resource") for p in picks[:2]]
         return AskOut(layer=2, answer=f"(Layer 2 Pointer) Check: {', '.join(titles)}", links=links)
 
@@ -376,11 +375,6 @@ async def ask(body: AskIn, x_user_id: str | None = Header(default=None, alias="X
         "createdAt": datetime.now(timezone.utc),
     })
     return AskOut(layer=3, answer=f"(Layer 3 Escalation) Ticket created: {str(res.inserted_id)}", links=[])
-
-
-class TicketIn(BaseModel):
-    courseCode: str
-    question: str
 
 
 @app.post("/tickets")
