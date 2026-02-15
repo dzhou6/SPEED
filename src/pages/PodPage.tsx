@@ -5,7 +5,14 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
 
-<<<<<<< HEAD
+type PodMemberView = PodMember & {
+  roles?: string[];
+  skills?: string[];
+  lastActive?: string;
+  // allow older/newer contact shapes during hackathon
+  contact?: PodMember["contact"] & { email?: string | null };
+};
+
 function roomSlug(raw: string) {
   return (
     raw
@@ -25,15 +32,7 @@ async function copyLink(url: string) {
     window.prompt("Copy this link:", url);
   }
 }
-=======
-type PodMemberView = PodMember & {
-  roles?: string[];
-  skills?: string[];
-  lastActive?: string;
-  // allow older/newer contact shapes during hackathon
-  contact?: PodMember["contact"] & { email?: string | null };
-};
->>>>>>> 6ea5624 (Fix frontend build and connect backend to Atlas)
+
 
 
 function isUnlocked(meId: string, m: PodMember, unlockedIds?: string[]) {
