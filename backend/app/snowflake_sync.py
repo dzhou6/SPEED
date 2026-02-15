@@ -45,27 +45,27 @@ def _write_user_sync(user_data: Dict[str, Any]):
             updated_at = updated_at.isoformat()
         
         # Check if user exists first
-        cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
+        cursor.execute("SELECT user_id FROM users WHERE user_id = %s", (user_id,))
         existing = cursor.fetchone()
         
         if existing:
             # Update existing user
             cursor.execute("""
                 UPDATE users SET
-                    display_name = ?,
-                    role_prefs = ?,
-                    skills = ?,
-                    availability = ?,
-                    course_codes = ?,
-                    updated_at = ?
-                WHERE user_id = ?
+                    display_name = %s,
+                    role_prefs = %s,
+                    skills = %s,
+                    availability = %s,
+                    course_codes = %s,
+                    updated_at = %s
+                WHERE user_id = %s
             """, (display_name, role_prefs, skills, availability, course_codes, updated_at, user_id))
         else:
             # Insert new user
             cursor.execute("""
                 INSERT INTO users (user_id, display_name, role_prefs, skills, 
                                  availability, course_codes, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """, (user_id, display_name, role_prefs, skills, availability, course_codes, created_at, updated_at))
         
         conn.commit()
@@ -108,22 +108,22 @@ def _write_swipe_sync(swipe_data: Dict[str, Any]):
             created_at = created_at.isoformat()
         
         # Check if swipe exists first
-        cursor.execute("SELECT swipe_id FROM swipes WHERE swipe_id = ?", (swipe_id,))
+        cursor.execute("SELECT swipe_id FROM swipes WHERE swipe_id = %s", (swipe_id,))
         existing = cursor.fetchone()
         
         if existing:
             # Update existing swipe
             cursor.execute("""
                 UPDATE swipes SET
-                    decision = ?,
-                    created_at = ?
-                WHERE swipe_id = ?
+                    decision = %s,
+                    created_at = %s
+                WHERE swipe_id = %s
             """, (decision, created_at, swipe_id))
         else:
             # Insert new swipe
             cursor.execute("""
                 INSERT INTO swipes (swipe_id, from_user_id, to_user_id, course_code, decision, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """, (swipe_id, from_user_id, to_user_id, course_code, decision, created_at))
         
         conn.commit()
@@ -168,23 +168,23 @@ def _write_pod_sync(pod_data: Dict[str, Any]):
             created_at = created_at.isoformat()
         
         # Check if pod exists first
-        cursor.execute("SELECT pod_id FROM pods WHERE pod_id = ?", (pod_id,))
+        cursor.execute("SELECT pod_id FROM pods WHERE pod_id = %s", (pod_id,))
         existing = cursor.fetchone()
         
         if existing:
             # Update existing pod
             cursor.execute("""
                 UPDATE pods SET
-                    course_code = ?,
-                    member_ids = ?,
-                    leader_id = ?
-                WHERE pod_id = ?
+                    course_code = %s,
+                    member_ids = %s,
+                    leader_id = %s
+                WHERE pod_id = %s
             """, (course_code, member_ids_str, leader_id, pod_id))
         else:
             # Insert new pod
             cursor.execute("""
                 INSERT INTO pods (pod_id, course_code, member_ids, leader_id, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
             """, (pod_id, course_code, member_ids_str, leader_id, created_at))
         
         conn.commit()
