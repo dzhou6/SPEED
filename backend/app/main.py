@@ -5,12 +5,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from bson import ObjectId
 import os
+import asyncio
 
 import logging
 from .platform_checks import run_platform_checks
 from .db import col, db, check_connection
 from .models import DemoAuthIn, DemoAuthOut, ProfileIn, SwipeIn, HubIn, AskIn, AskOut, CourseOut
 from .matching import rank_candidates
+from .snowflake_sync import write_user_to_snowflake, write_swipe_to_snowflake, write_pod_to_snowflake
 
 # Configure logging
 logging.basicConfig(
@@ -97,6 +99,11 @@ async def auth_demo(body: DemoAuthIn):
         "createdAt": datetime.now(timezone.utc),
     }
     res = await users.insert_one(doc)
+    doc["_id"] = res.inserted_id
+    
+    # Dual write to Snowflake (non-blocking)
+    asyncio.create_task(write_user_to_snowflake(doc))
+    
     return DemoAuthOut(userId=str(res.inserted_id), displayName=doc["displayName"])
 
 @app.get("/user/courses")
@@ -158,16 +165,29 @@ async def add_course_to_user(courseCode: str, x_user_id: str | None = Header(def
 
 @app.post("/profile")
 async def upsert_profile(body: ProfileIn, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
+    # #region agent log
+    import json
+    with open(r"c:\Users\VuNguyen\OneDrive\Documents\GMU\hackathon\class_cupid\SPEED\.cursor\debug.log", "a") as f:
+        f.write(json.dumps({"location": "main.py:167", "message": "upsert_profile called", "data": {"x_user_id": str(x_user_id)[:20] if x_user_id else None, "body_courseCode": body.courseCode}, "timestamp": int(__import__("time").time() * 1000), "runId": "run1", "hypothesisId": "A"}) + "\n")
+    # #endregion
     try:
         uid = require_user(x_user_id)
+        # #region agent log
+        with open(r"c:\Users\VuNguyen\OneDrive\Documents\GMU\hackathon\class_cupid\SPEED\.cursor\debug.log", "a") as f:
+            f.write(json.dumps({"location": "main.py:171", "message": "require_user succeeded", "data": {"uid": str(uid)}, "timestamp": int(__import__("time").time() * 1000), "runId": "run1", "hypothesisId": "A"}) + "\n")
+        # #endregion
         users = col("users")
 
         doc = body.model_dump(exclude_none=True)
     # we don't want these as normal fields if you're using courseCodes + header user id
         doc.pop("courseCode", None)
         doc.pop("userId", None)
+        # #region agent log
+        with open(r"c:\Users\VuNguyen\OneDrive\Documents\GMU\hackathon\class_cupid\SPEED\.cursor\debug.log", "a") as f:
+            f.write(json.dumps({"location": "main.py:179", "message": "doc after processing", "data": {"doc_keys": list(doc.keys()), "doc_size": len(str(doc))}, "timestamp": int(__import__("time").time() * 1000), "runId": "run1", "hypothesisId": "B"}) + "\n")
+        # #endregion
 
-        await users.update_one(
+        result = await users.update_one(
             {"_id": uid},
             {
                 "$addToSet": {"courseCodes": body.courseCode},
@@ -175,11 +195,35 @@ async def upsert_profile(body: ProfileIn, x_user_id: str | None = Header(default
             },
             upsert=True,
         )
+        # #region agent log
+        with open(r"c:\Users\VuNguyen\OneDrive\Documents\GMU\hackathon\class_cupid\SPEED\.cursor\debug.log", "a") as f:
+            f.write(json.dumps({"location": "main.py:189", "message": "update_one result", "data": {"matched_count": result.matched_count, "modified_count": result.modified_count, "upserted_id": str(result.upserted_id) if result.upserted_id else None}, "timestamp": int(__import__("time").time() * 1000), "runId": "run1", "hypothesisId": "C"}) + "\n")
+        # #endregion
+        
+        # Dual write to Snowflake (non-blocking)
+        user_doc = await users.find_one({"_id": uid})
+        # #region agent log
+        with open(r"c:\Users\VuNguyen\OneDrive\Documents\GMU\hackathon\class_cupid\SPEED\.cursor\debug.log", "a") as f:
+            f.write(json.dumps({"location": "main.py:195", "message": "user_doc after update", "data": {"user_doc_exists": user_doc is not None, "user_doc_keys": list(user_doc.keys()) if user_doc else []}, "timestamp": int(__import__("time").time() * 1000), "runId": "run1", "hypothesisId": "D"}) + "\n")
+        # #endregion
+        if user_doc:
+            asyncio.create_task(write_user_to_snowflake(user_doc))
+        
         return {"ok": True}
 
-    except HTTPException:
+    except HTTPException as e:
+        # #region agent log
+        import json
+        with open(r"c:\Users\VuNguyen\OneDrive\Documents\GMU\hackathon\class_cupid\SPEED\.cursor\debug.log", "a") as f:
+            f.write(json.dumps({"location": "main.py:203", "message": "HTTPException in upsert_profile", "data": {"status_code": e.status_code, "detail": str(e.detail)}, "timestamp": int(__import__("time").time() * 1000), "runId": "run1", "hypothesisId": "A"}) + "\n")
+        # #endregion
         raise
     except Exception as e:
+        # #region agent log
+        import json
+        with open(r"c:\Users\VuNguyen\OneDrive\Documents\GMU\hackathon\class_cupid\SPEED\.cursor\debug.log", "a") as f:
+            f.write(json.dumps({"location": "main.py:210", "message": "Exception in upsert_profile", "data": {"error_type": type(e).__name__, "error_message": str(e)}, "timestamp": int(__import__("time").time() * 1000), "runId": "run1", "hypothesisId": "E"}) + "\n")
+        # #endregion
         logger.error(f"Error saving profile: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save profile: {str(e)}")
 
@@ -294,6 +338,16 @@ async def swipe(body: SwipeIn, x_user_id: str | None = Header(default=None, alia
         {"$set": {"decision": body.decision, "createdAt": datetime.now(timezone.utc)}},
         upsert=True,
     )
+    
+    # Dual write swipe to Snowflake (non-blocking)
+    swipe_doc = {
+        "fromUserId": uid,
+        "toUserId": target,
+        "courseCode": body.courseCode,
+        "decision": body.decision,
+        "createdAt": datetime.now(timezone.utc)
+    }
+    asyncio.create_task(write_swipe_to_snowflake(swipe_doc))
 
     mutual = False
     pod_updated = False
@@ -321,7 +375,11 @@ async def swipe(body: SwipeIn, x_user_id: str | None = Header(default=None, alia
                 }
                 res = await pods.insert_one(doc)
                 pod_id = str(res.inserted_id)
+                doc["_id"] = res.inserted_id
                 pod_updated = True
+                
+                # Dual write pod to Snowflake (non-blocking)
+                asyncio.create_task(write_pod_to_snowflake(doc))
             else:
                 existing = pod_me or pod_other
                 if target not in existing["memberIds"]:
@@ -329,6 +387,10 @@ async def swipe(body: SwipeIn, x_user_id: str | None = Header(default=None, alia
                         raise HTTPException(409, "Pod is full")
                     await pods.update_one({"_id": existing["_id"]}, {"$addToSet": {"memberIds": target}})
                     pod_updated = True
+                    # Dual write updated pod to Snowflake (non-blocking)
+                    updated_pod = await pods.find_one({"_id": existing["_id"]})
+                    if updated_pod:
+                        asyncio.create_task(write_pod_to_snowflake(updated_pod))
                 pod_id = str(existing["_id"])
 
     return {"ok": True, "mutual": mutual, "podUpdated": pod_updated, "podId": pod_id}
