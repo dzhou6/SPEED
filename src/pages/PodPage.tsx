@@ -26,6 +26,42 @@ function normalizeLinks(links?: AskResponse["links"]) {
   return [];
 }
 
+function roomSlug(raw: string) {
+  return (
+    raw
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/(^-|-$)/g, "")
+      .slice(0, 64) || "pod"
+  );
+}
+
+async function copyLink(url: string) {
+  try {
+    await navigator.clipboard.writeText(url);
+    toast("Copied link.", "success");
+  } catch {
+    // fallback if clipboard is blocked
+    window.prompt("Copy this link:", url);
+  }
+}
+
+// Deterministic 5-letter key for PairDrop rooms
+function roomKey5(input: string) {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let out = "";
+  let x = hash;
+  for (let i = 0; i < 5; i++) {
+    out += letters[x % 26];
+    x = Math.floor(x / 26);
+  }
+  return out;
+}
+
 export default function PodPage() {
   const [userId] = useLocalStorage<string | null>("cc_userId", null);
   const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
@@ -59,6 +95,22 @@ export default function PodPage() {
     if (pod?.hasPod === false) return false;
     return !!pod?.podId && members.length > 0;
   }, [pod?.hasPod, pod?.podId, members.length]);
+
+  const podRoom = useMemo(() => {
+    // same for everyone in the pod because podId is shared
+    const base = `${pod?.podId || ""}-${courseCode || ""}-pod`;
+    return roomSlug(`coursecupid-${base}`);
+  }, [pod?.podId, courseCode]);
+
+  const pairdropKey = useMemo(() => roomKey5(podRoom), [podRoom]);
+
+  const quickLinks = useMemo(() => {
+    return {
+      video: `https://talky.io/${podRoom}`,                 // video + chat (no account)
+      whiteboard: `https://wbo.ophir.dev/boards/${podRoom}`, // whiteboard (no account)
+      files: `https://pairdrop.net/?room_key=${pairdropKey}` // file drop (no account)
+    };
+  }, [podRoom, pairdropKey]);
   
   function formatLastActive(iso: string): string {
     try {
@@ -231,9 +283,34 @@ export default function PodPage() {
 
           <div className="section">
             <div className="label">Pod Hub</div>
+
+            <div className="notice">
+              <div className="muted" style={{ marginBottom: 8 }}>
+                Instant links (no email required). Share these with your pod:
+              </div>
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                <span className="badge">Video + chat</span>
+                <a className="link" href={quickLinks.video} target="_blank" rel="noreferrer">open</a>
+                <button className="btn" onClick={() => copyLink(quickLinks.video)}>Copy</button>
+              </div>
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <span className="badge">Whiteboard</span>
+                <a className="link" href={quickLinks.whiteboard} target="_blank" rel="noreferrer">open</a>
+                <button className="btn" onClick={() => copyLink(quickLinks.whiteboard)}>Copy</button>
+              </div>
+
+              <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                <span className="badge">File drop</span>
+                <a className="link" href={quickLinks.files} target="_blank" rel="noreferrer">open</a>
+                <button className="btn" onClick={() => copyLink(quickLinks.files)}>Copy</button>
+              </div>
+            </div>
+
             {pod?.hubLink ? (
               <div className="notice">
-                Hub link:{" "}
+                Custom hub:{" "}
                 <a className="link" href={pod.hubLink} target="_blank" rel="noreferrer">
                   {pod.hubLink}
                 </a>
@@ -244,14 +321,14 @@ export default function PodPage() {
                   className="input"
                   value={hubDraft}
                   onChange={(e) => setHubDraft(e.target.value)}
-                  placeholder="Paste Google Doc/Sheet link"
+                  placeholder="Optional: paste Google Doc/Sheet link"
                 />
                 <button className="btn primary" onClick={setHub}>
-                  Set Pod Hub link
+                  Set custom hub link
                 </button>
               </div>
             ) : (
-              <div className="muted">Waiting for leader to set Pod Hub.</div>
+              <div className="muted">Leader can optionally set a custom Pod Hub link.</div>
             )}
           </div>
 
