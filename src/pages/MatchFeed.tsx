@@ -111,11 +111,12 @@ export default function MatchFeed() {
     msg.includes("ERR_CONNECTION_REFUSED") ||
     msg.includes("NetworkError");
 
-  if (isConnRefused) {
+  /*if (isConnRefused) {
     setCandidates(DEMO_CANDIDATES);
     toast("Backend offline — using demo matches.", "info");
     return;
-  }
+  }*/
+ 
 
   toast(e?.message || "Failed to load matches.", "error");
 } finally {

@@ -1,4 +1,4 @@
-const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
 type HttpMethod = "GET" | "POST";
 
@@ -60,7 +60,7 @@ export async function api<TResponse>(
     }
   }
   
-  const url = `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
   const { controller, clear } = withTimeout(12000);
 
   try {

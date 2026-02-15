@@ -32,11 +32,15 @@ except ImportError:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 @app.on_event("startup")
 async def _startup():
@@ -244,6 +248,14 @@ async def recommendations(
             continue
         u["lastActiveAt"] = last_active.get(str(u["_id"]))
         cand.append(u)
+    try:
+        ranked = rank_candidates(me, cand, my_pod_roles)
+    except Exception as e:
+        logger.exception("rank_candidates crashed; falling back to simple order")
+        ranked = [
+            {"userId": str(u["_id"]), "score": 0.0, "reasons": ["Fallback ranking (ranker error)"]}
+            for u in cand
+        ]
 
     ranked = rank_candidates(me, cand, my_pod_roles, mode=mode)
 
@@ -252,16 +264,20 @@ async def recommendations(
         u = next((x for x in cand if str(x["_id"]) == r["userId"]), None)
         if not u:
             continue
-        out.append({
-            "userId": r["userId"],
-            "displayName": u.get("displayName", "Student"),
-            "rolePrefs": u.get("rolePrefs", []),
-            "skills": u.get("skills", [])[:6],
-            "availability": u.get("availability", [])[:3],
-            "lastActiveAt": u.get("lastActiveAt"),
-            "score": r["score"],
-            "reasons": r["reasons"],
-        }) 
+        la = u.get("lastActiveAt")
+    if hasattr(la, "isoformat"):
+        la = la.isoformat()
+    out.append({
+    "userId": r["userId"],
+    "displayName": u.get("displayName", "Student"),
+    "rolePrefs": u.get("rolePrefs", []),
+    "skills": (u.get("skills") or [])[:6],
+    "availability": (u.get("availability") or [])[:3],
+    "lastActiveAt": la,
+    "score": float(r.get("score") or 0.0),
+    "reasons": [str(x) for x in (r.get("reasons") or [])],
+    })
+
     return {"candidates": out}
 
 async def has_mutual_accept(courseCode: str, a: ObjectId, b: ObjectId) -> bool:
