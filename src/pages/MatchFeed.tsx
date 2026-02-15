@@ -61,6 +61,7 @@ export default function MatchFeed() {
   const nav = useNavigate();
   const [userId] = useLocalStorage<string | null>("cc_userId", null);
   const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
+  const [matchMode, setMatchMode] = useLocalStorage<"quickmatch" | "skillmatch">("cc_matchMode", "skillmatch");
 
   const [candidates, setCandidates] = useState<RecommendationUser[]>([]);
   const [pod, setPod] = useState<PodState | null>(null);
@@ -86,9 +87,9 @@ export default function MatchFeed() {
       return;
     }
     setLoading(true);
-    console.log("Loading recommendations...");
+    console.log(`Loading recommendations with mode: ${matchMode}...`);
    try {
-  const rec = await api<RecommendationsResponse>(`/recommendations${qs({ courseCode })}`, "GET");
+  const rec = await api<RecommendationsResponse>(`/recommendations${qs({ courseCode, mode: matchMode })}`, "GET");
   const list = rec?.candidates || [];
   console.log(`Loaded ${list.length} candidates`);
 
@@ -139,13 +140,13 @@ export default function MatchFeed() {
     loadCourseInfo();
   }, [courseCode]);
 
-  // Load recommendations once on mount
+  // Load recommendations when courseCode or matchMode changes
   useEffect(() => {
     if (courseCode) {
       load();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseCode]); // Only reload if courseCode changes
+  }, [courseCode, matchMode]); // Reload if courseCode or matchMode changes
 
   // Poll pod every 10s while in feed (but don't reload recommendations)
   // Only poll if user doesn't have a pod yet (to detect new matches)
@@ -217,6 +218,58 @@ export default function MatchFeed() {
           <button className="link" onClick={() => nav("/pod")}>Go to Pod</button>
         </div>
       ) : null}
+
+      {/* Match Mode Toggle */}
+      <div style={{ 
+        display: "flex", 
+        alignItems: "center", 
+        gap: "12px",
+        marginBottom: "16px",
+        padding: "12px",
+        background: "var(--card)",
+        borderRadius: "8px",
+        border: "1px solid var(--border)"
+      }}>
+        <span className="label" style={{ marginRight: "8px", whiteSpace: "nowrap" }}>Match Mode:</span>
+        <button
+          className={`btn ${matchMode === "quickmatch" ? "primary" : ""}`}
+          onClick={() => {
+            setMatchMode("quickmatch");
+          }}
+          style={{
+            flex: 1,
+            padding: "10px 16px",
+            fontSize: "0.9em",
+            fontWeight: matchMode === "quickmatch" ? "bold" : "normal",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "4px"
+          }}
+        >
+          <span>⚡ QuickMatch</span>
+          <span style={{ fontSize: "0.75em", opacity: 0.8 }}>Fast active people</span>
+        </button>
+        <button
+          className={`btn ${matchMode === "skillmatch" ? "primary" : ""}`}
+          onClick={() => {
+            setMatchMode("skillmatch");
+          }}
+          style={{
+            flex: 1,
+            padding: "10px 16px",
+            fontSize: "0.9em",
+            fontWeight: matchMode === "skillmatch" ? "bold" : "normal",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "4px"
+          }}
+        >
+          <span>🎯 SkillMatch</span>
+          <span style={{ fontSize: "0.75em", opacity: 0.8 }}>Targeted roles/skills</span>
+        </button>
+      </div>
 
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <div>

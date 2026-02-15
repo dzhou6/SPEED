@@ -75,6 +75,7 @@ def rank_candidates(
     my_pod_roles_or_state: Union[List[str], Dict[str, Any], None],
     prior_swipes: Optional[Sequence[Any]] = None,
     debug: bool = False,
+    mode: str = "skillmatch",
 ) -> List[Dict[str, Any]]:
     """
     Returns a ranked list:
@@ -86,7 +87,29 @@ def rank_candidates(
 
     prior_swipes is optional; /recommendations already filters swiped users,
     but this keeps the function usable elsewhere too.
+    
+    mode: "quickmatch" or "skillmatch"
+    - quickmatch: Prioritize activity + availability (fast active people)
+    - skillmatch: Prioritize roles + skills (targeted matching)
     """
+    # Adjust weights based on mode
+    if mode == "quickmatch":
+        weights = {
+            "role": 20.0,          # Lower priority
+            "availability": 40.0,  # Higher priority
+            "skills": 15.0,        # Lower priority
+            "activity": 35.0,      # Higher priority
+            "diversity_penalty": 15.0,
+        }
+    else:  # skillmatch (default)
+        weights = {
+            "role": 50.0,          # Highest priority
+            "availability": 20.0,
+            "skills": 20.0,
+            "activity": 10.0,
+            "diversity_penalty": 15.0,
+        }
+    
     now = datetime.now(timezone.utc)
 
     me_roles = _norm_roles(me.get("rolePrefs", []))
@@ -131,11 +154,11 @@ def rank_candidates(
         activity_s, activity_reason = _activity_score(last_active, now)
         diversity_pen = _diversity_penalty(me_primary, me_skills, c_primary, c_skills)
 
-        role_pts = WEIGHTS["role"] * role_s
-        skills_pts = WEIGHTS["skills"] * skills_s
-        avail_pts = WEIGHTS["availability"] * avail_s
-        activity_pts = WEIGHTS["activity"] * activity_s
-        penalty_pts = WEIGHTS["diversity_penalty"] * diversity_pen
+        role_pts = weights["role"] * role_s
+        skills_pts = weights["skills"] * skills_s
+        avail_pts = weights["availability"] * avail_s
+        activity_pts = weights["activity"] * activity_s
+        penalty_pts = weights["diversity_penalty"] * diversity_pen
 
         total = role_pts + skills_pts + avail_pts + activity_pts - penalty_pts
 

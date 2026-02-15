@@ -203,7 +203,11 @@ async def get_last_active_map(courseCode: str):
     return m
 
 @app.get("/recommendations")
-async def recommendations(courseCode: str, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
+async def recommendations(
+    courseCode: str, 
+    mode: str = "skillmatch",
+    x_user_id: str | None = Header(default=None, alias="X-User-Id")
+):
     try:
         uid = require_user(x_user_id)
         users = col("users")
@@ -212,6 +216,10 @@ async def recommendations(courseCode: str, x_user_id: str | None = Header(defaul
     except Exception as e:
         logger.error(f"Error in recommendations: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    # Validate mode
+    if mode not in ["quickmatch", "skillmatch"]:
+        mode = "skillmatch"  # Default to skillmatch if invalid
 
     me = await users.find_one({"_id": uid})
     if not me:
@@ -237,7 +245,7 @@ async def recommendations(courseCode: str, x_user_id: str | None = Header(defaul
         u["lastActiveAt"] = last_active.get(str(u["_id"]))
         cand.append(u)
 
-    ranked = rank_candidates(me, cand, my_pod_roles)
+    ranked = rank_candidates(me, cand, my_pod_roles, mode=mode)
 
     out = []
     for r in ranked:
