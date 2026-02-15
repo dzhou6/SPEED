@@ -210,27 +210,43 @@ export default function JoinCourse() {
           )}
 
           {courseInfo.syllabusText && (
-            <details style={{ marginTop: "8px" }}>
+            <details style={{ marginTop: "8px" }} open>
               <summary style={{ 
                 cursor: "pointer", 
                 fontWeight: "bold", 
                 color: "var(--primary2)",
                 fontSize: "0.95em"
               }}>
-                Full Course Description
+                Full Course Syllabus
               </summary>
               <div style={{ 
                 marginTop: "8px", 
-                padding: "12px", 
+                padding: "16px", 
                 background: "var(--card)", 
                 borderRadius: "8px",
                 whiteSpace: "pre-wrap",
-                fontSize: "0.9em",
+                fontSize: "0.8em",
                 color: "var(--text)",
-                lineHeight: "1.5",
-                border: "1px solid var(--border)"
+                lineHeight: "1.6",
+                border: "1px solid var(--border)",
+                maxHeight: "500px",
+                overflowY: "auto",
+                overflowX: "hidden",
+                fontFamily: "monospace"
               }}>
                 {courseInfo.syllabusText}
+              </div>
+              <div style={{ 
+                marginTop: "12px", 
+                padding: "10px",
+                fontSize: "0.85em", 
+                color: "var(--muted)",
+                fontStyle: "italic",
+                background: "rgba(255,122,178,0.1)",
+                borderRadius: "6px",
+                border: "1px solid rgba(255,122,178,0.2)"
+              }}>
+                💡 Too much to read? Use the chatbox to ask questions instead!
               </div>
             </details>
           )}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, qs } from "../api/client";
-import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest, CourseInfo } from "../api/types";
+import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest, CourseInfo, AskResponse } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
@@ -67,6 +67,11 @@ export default function MatchFeed() {
   const [courseInfo, setCourseInfo] = useState<CourseInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [swiping, setSwiping] = useState<string | null>(null);
+  
+  // Chatbox state
+  const [question, setQuestion] = useState("");
+  const [ai, setAi] = useState<AskResponse | null>(null);
+  const [asking, setAsking] = useState(false);
 
   const hasPod = useMemo(() => {
     if (pod?.hasPod === false) return false;
@@ -173,6 +178,32 @@ export default function MatchFeed() {
     }
   }
 
+  async function askQuestion() {
+    if (!courseCode || !userId) return toast("Missing session.", "error");
+    if (!question.trim()) return toast("Type a question.", "error");
+    setAsking(true);
+    setAi(null); // Clear previous answer when asking new question
+    try {
+      const res = await api<AskResponse>("/ask", "POST", {
+        courseCode,
+        question: question.trim(),
+      }, userId);
+      setAi(res || { layer: 1, answer: "No response." });
+    } catch (e: any) {
+      toast(e?.message || "Ask failed.", "error");
+    } finally {
+      setAsking(false);
+    }
+  }
+
+  function handleQuestionChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setQuestion(e.target.value);
+    // Clear previous answer when user starts typing a new question
+    if (ai) {
+      setAi(null);
+    }
+  }
+
   return (
     <div className="card">
       <h1>Match Feed</h1>
@@ -194,19 +225,38 @@ export default function MatchFeed() {
             {courseInfo?.courseName && ` - ${courseInfo.courseName}`}
           </div>
           {courseInfo?.syllabusText && (
-            <details style={{ marginTop: "8px", fontSize: "0.9em" }}>
-              <summary style={{ cursor: "pointer", color: "var(--primary2)", fontWeight: "bold" }}>Course Description</summary>
+            <details style={{ marginTop: "8px", fontSize: "0.9em" }} open>
+              <summary style={{ cursor: "pointer", color: "var(--primary2)", fontWeight: "bold" }}>
+                Full Course Syllabus
+              </summary>
               <div style={{ 
                 marginTop: "8px", 
-                padding: "12px", 
+                padding: "16px", 
                 background: "var(--card)", 
                 borderRadius: "8px", 
                 whiteSpace: "pre-wrap",
                 color: "var(--text)",
-                lineHeight: "1.5",
-                border: "1px solid var(--border)"
+                lineHeight: "1.6",
+                border: "1px solid var(--border)",
+                maxHeight: "400px",
+                overflowY: "auto",
+                overflowX: "hidden",
+                fontSize: "0.8em",
+                fontFamily: "monospace"
               }}>
                 {courseInfo.syllabusText}
+              </div>
+              <div style={{ 
+                marginTop: "12px", 
+                padding: "10px",
+                fontSize: "0.8em", 
+                color: "var(--muted)",
+                fontStyle: "italic",
+                background: "rgba(255,122,178,0.1)",
+                borderRadius: "6px",
+                border: "1px solid rgba(255,122,178,0.2)"
+              }}>
+                💡 Too much to read? Use the chatbox below to ask questions!
               </div>
             </details>
           )}
@@ -277,6 +327,48 @@ export default function MatchFeed() {
           ))}
         </div>
       )}
+
+      {/* Chatbox for asking syllabus questions */}
+      <div className="section" style={{ marginTop: "24px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
+        <div className="label">💬 Ask About Course Syllabus</div>
+        <p className="muted" style={{ fontSize: "0.9em", marginBottom: "12px" }}>
+          Have questions about deadlines, policies, or course info? Ask the AI assistant!
+        </p>
+        <div className="row">
+          <input
+            className="input"
+            value={question}
+            onChange={handleQuestionChange}
+            onKeyDown={(e) => e.key === "Enter" && !asking && askQuestion()}
+            placeholder="e.g., When is the final exam? What's the late policy?"
+            style={{ flex: 1 }}
+          />
+          <button className="btn primary" onClick={askQuestion} disabled={asking || !question.trim()}>
+            {asking ? "Asking..." : "Ask"}
+          </button>
+        </div>
+
+        {ai && (
+          <div className="aiBox" style={{ marginTop: "12px" }}>
+            <div className="badge">Layer {ai.layer}</div>
+            <div className="aiAnswer" style={{ whiteSpace: "pre-wrap" }}>{ai.answer}</div>
+            {ai.links && Array.isArray(ai.links) && ai.links.length > 0 && (
+              <div style={{ marginTop: "8px" }}>
+                <div className="label">Links</div>
+                <ul>
+                  {ai.links.slice(0, 3).map((link, i) => (
+                    <li key={i}>
+                      <a className="link" href={typeof link === "string" ? link : link.url} target="_blank" rel="noreferrer">
+                        {typeof link === "string" ? link : (link.title || link.url)}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

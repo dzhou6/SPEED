@@ -4,6 +4,7 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timezone
 from bson import ObjectId
+import os
 
 import logging
 from .platform_checks import run_platform_checks
@@ -20,8 +21,12 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="CourseCupid MVP")
 
-from .ai_routes import router as ai_router
-app.include_router(ai_router)
+# Optional AI routes (for match explanations)
+try:
+    from .ai_routes import router as ai_router
+    app.include_router(ai_router)
+except ImportError:
+    logger.warning("ai_routes not available, skipping")
 
 
 
@@ -104,11 +109,12 @@ async def get_user_courses(x_user_id: str | None = Header(default=None, alias="X
         
         user = await users.find_one({"_id": uid})
         if not user:
-            raise HTTPException(404, "User not found")
+            # Return empty list instead of 404 for better UX
+            return {"courseCodes": [], "courses": []}
         
         user_course_codes = user.get("courseCodes", [])
         if not user_course_codes:
-            return {"courseCodes": []}
+            return {"courseCodes": [], "courses": []}
         
         # Get course details for each course code
         course_list = []
@@ -118,7 +124,6 @@ async def get_user_courses(x_user_id: str | None = Header(default=None, alias="X
                 "courseName": course.get("courseName")
             })
         
-        # Ensure we return all courseCodes, even if some don't have details
         logger.info(f"User {uid} has courses: {user_course_codes}, found details for: {[c['courseCode'] for c in course_list]}")
         return {"courseCodes": user_course_codes, "courses": course_list}
     except HTTPException:
@@ -382,18 +387,102 @@ async def set_hub(body: HubIn, x_user_id: str | None = Header(default=None, alia
     await pods.update_one({"_id": p["_id"]}, {"$set": {"hubLink": body.hubLink}})
     return {"ok": True}
 
-def route_question(q: str) -> int:
-    ql = q.lower()
-    logistics_words = ["when", "due", "deadline", "final", "midterm", "exam", "where", "room", "office hour", "syllabus"]
-    pointer_words = ["explain", "concept", "lecture", "slides", "topic", "reading", "understand", "confused"]
-    if any(w in ql for w in logistics_words):
-        return 1
-    if any(w in ql for w in pointer_words):
-        return 2
-    return 3
+async def ask_ai_syllabus(question: str, syllabus_text: str) -> str:
+    """Use OpenAI to answer questions about the syllabus intelligently."""
+    try:
+        from openai import OpenAI
+        
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            # Fallback to simple text search if no API key
+            return _fallback_syllabus_answer(question, syllabus_text)
+        
+        client = OpenAI(api_key=api_key)
+        
+        # More generic system prompt that works for all courses
+        system_prompt = (
+            "You are a helpful and friendly teaching assistant for a university course. "
+            "Your job is to answer student questions about the course syllabus in a natural, conversational way. "
+            "DO NOT just copy-paste text from the syllabus. Instead, read the syllabus carefully and provide "
+            "a clear, helpful answer in your own words. Be concise but complete. "
+            "When mentioning specific dates, times, percentages, or policies, be accurate and include the exact details. "
+            "If the answer is not in the syllabus, say so clearly and suggest they contact the instructor. "
+            "Format your answer in a friendly, easy-to-read way with proper structure."
+        )
+        
+        user_prompt = (
+            f"Student Question: {question}\n\n"
+            f"Course Syllabus:\n{syllabus_text}\n\n"
+            f"Please answer the student's question in a natural, conversational way. "
+            f"Read the syllabus carefully and explain the answer clearly in your own words. "
+            f"Do NOT just copy text from the syllabus - synthesize the information and explain it naturally. "
+            f"Be accurate with dates, times, and specific details. "
+            f"If the information is not in the syllabus, say 'I don't see that information in the syllabus. Please contact your instructor for clarification.'"
+        )
+        
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.2,  # Lower temperature for more accurate, consistent answers
+            max_tokens=800  # Increased for more detailed responses
+        )
+        
+        answer = response.choices[0].message.content.strip()
+        return answer
+        
+    except Exception as e:
+        logger.warning(f"OpenAI API error: {e}, falling back to simple search")
+        return _fallback_syllabus_answer(question, syllabus_text)
+
+def _fallback_syllabus_answer(question: str, syllabus_text: str) -> str:
+    """Fallback method when OpenAI is not available - simple keyword matching."""
+    ql = question.lower()
+    syllabus_lower = syllabus_text.lower()
+    
+    # Extract relevant sections based on keywords
+    keywords_map = {
+        "due": ["due", "deadline", "submission"],
+        "exam": ["exam", "midterm", "final"],
+        "homework": ["homework", "assignment"],
+        "office": ["office hours", "office"],
+        "grade": ["grading", "grade", "percentage"],
+        "policy": ["policy", "late", "attendance"],
+        "project": ["project", "final project"],
+        "when": ["when", "date", "time"],
+        "where": ["where", "location", "room"]
+    }
+    
+    # Find relevant sections
+    lines = syllabus_text.split('\n')
+    relevant_lines = []
+    for keyword_group in keywords_map.values():
+        if any(kw in ql for kw in keyword_group):
+            for line in lines:
+                if any(kw in line.lower() for kw in keyword_group):
+                    if line.strip() and len(line.strip()) > 10:
+                        relevant_lines.append(line.strip())
+    
+    if relevant_lines:
+        return f"Based on the syllabus:\n\n" + "\n".join(relevant_lines[:5])
+    else:
+        # Return a snippet around the question keywords
+        words = ql.split()
+        for word in words:
+            if len(word) > 3 and word in syllabus_lower:
+                idx = syllabus_lower.find(word)
+                start = max(0, idx - 200)
+                end = min(len(syllabus_text), idx + 300)
+                snippet = syllabus_text[start:end]
+                return f"Found in syllabus:\n\n{snippet}..."
+        
+        return f"Here's a relevant section from the syllabus:\n\n{syllabus_text[:500]}..."
 
 @app.post("/ask", response_model=AskOut)
 async def ask(body: AskIn, x_user_id: str | None = Header(default=None, alias="X-User-Id")):
+    """All questions are routed to Layer 1 (Syllabus AI) for now."""
     _ = require_user(x_user_id)
 
     courses = col("courses")
@@ -401,32 +490,10 @@ async def ask(body: AskIn, x_user_id: str | None = Header(default=None, alias="X
     if not c:
         raise HTTPException(404, "Course not found (seed demo data first)")
 
-    layer = route_question(body.question)
-
-    if layer == 1:
-        return AskOut(layer=1, answer=f"(Layer 1 Logistics)\n\n“{c['syllabusText'][:220]}...”", links=[])
-
-    if layer == 2:
-        mats = c.get("materials", [])[:10]
-        if not mats:
-            return AskOut(layer=2, answer="(Layer 2 Pointer) No materials available.", links=[])
-        ql = body.question.lower()
-        picks = []
-        for m in mats:
-            kws = [k.lower() for k in m.get("keywords", [])]
-            if any(k in ql for k in kws):
-                picks.append(m)
-        if not picks:
-            picks = mats[:2]
-        links = [p["url"] for p in picks[:2]]
-        titles = [p["title"] for p in picks[:2]]
-        return AskOut(layer=2, answer=f"(Layer 2 Pointer) Check: {', '.join(titles)}", links=links)
-
-    tickets = col("tickets")
-    res = await tickets.insert_one({
-        "courseCode": body.courseCode,
-        "question": body.question,
-        "status": "open",
-        "createdAt": datetime.now(timezone.utc),
-    })
-    return AskOut(layer=3, answer=f"(Layer 3 Escalation) Ticket created: {str(res.inserted_id)}", links=[])
+    # Always use Layer 1 - Syllabus AI for all questions
+    syllabus_text = c.get("syllabusText", "")
+    if syllabus_text:
+        ai_answer = await ask_ai_syllabus(body.question, syllabus_text)
+        return AskOut(layer=1, answer=f"📋 Syllabus Assistant\n\n{ai_answer}", links=[])
+    else:
+        return AskOut(layer=1, answer="Syllabus information not available. Please contact your instructor.", links=[])

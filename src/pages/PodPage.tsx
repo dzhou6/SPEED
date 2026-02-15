@@ -132,17 +132,25 @@ export default function PodPage() {
     if (!question.trim()) return toast("Type a question.", "error");
     setAsking(true);
     setTicket(null);
+    setAi(null); // Clear previous answer when asking new question
     try {
       const res = await api<AskResponse>("/ask", "POST", {
         courseCode,
-        userId,
         question: question.trim(),
-      });
-      setAi(res || { layer: "Layer ?", answer: "No response." });
+      }, userId);
+      setAi(res || { layer: 1, answer: "No response." });
     } catch (e: any) {
       toast(e?.message || "Ask failed.", "error");
     } finally {
       setAsking(false);
+    }
+  }
+
+  function handleQuestionChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setQuestion(e.target.value);
+    // Clear previous answer when user starts typing a new question
+    if (ai) {
+      setAi(null);
     }
   }
 
@@ -254,8 +262,9 @@ export default function PodPage() {
               <input
                 className="input"
                 value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask a question (logistics, pointers, or escalate)"
+                onChange={handleQuestionChange}
+                onKeyDown={(e) => e.key === "Enter" && !asking && askAutoRoute()}
+                placeholder="Ask a question about the syllabus"
               />
             </div>
 
