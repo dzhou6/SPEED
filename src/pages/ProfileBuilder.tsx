@@ -37,8 +37,6 @@ export default function ProfileBuilder() {
   const [skills, setSkills] = useState<string[]>(["JavaScript", "React"]);
   const [availability, setAvailability] = useState<string[]>(["Mon evening", "Wed evening"]);
   const [goals, setGoals] = useState<string>("exam prep");
-  const [contactDiscord, setContactDiscord] = useState<string>("");
-  const [contactLinkedIn, setContactLinkedIn] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   const canSave = useMemo(() => roles.length >= 1 && roles.length <= 2, [roles]);

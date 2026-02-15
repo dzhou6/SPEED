@@ -5,6 +5,39 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
 
+export type CourseInfo = {
+  courseCode: string;
+  courseName?: string;
+  syllabusText?: string;
+  professor?: string;
+  location?: string;
+  classPolicy?: string;
+  latePolicy?: string;
+  officeHours?: string;
+};
+
+export type UserCoursesResponse = {
+  courseCodes: string[];
+  courses?: Array<{
+    courseCode: string;
+    courseName?: string;
+  }>;
+};
+
+// JoinCourse.tsx expects res.displayName
+export interface DemoAuthResponse {
+  userId: string;
+  courseCode: string;
+  token?: string;
+  displayName?: string;
+}
+
+export interface TicketResponse {
+  ok: boolean;
+  ticketId?: string;
+  message?: string;
+}
+
 type PodMemberView = PodMember & {
   roles?: string[];
   skills?: string[];
@@ -120,38 +153,6 @@ const members = useMemo<PodMemberView[]>(() => {
 }, [pod]);
 
 
-export type CourseInfo = {
-  courseCode: string;
-  courseName?: string;
-  syllabusText?: string;
-  professor?: string;
-  location?: string;
-  classPolicy?: string;
-  latePolicy?: string;
-  officeHours?: string;
-};
-
-export type UserCoursesResponse = {
-  courseCodes: string[];
-  courses?: Array<{
-    courseCode: string;
-    courseName?: string;
-  }>;
-};
-
-// JoinCourse.tsx expects res.displayName
-export interface DemoAuthResponse {
-  userId: string;
-  courseCode: string;
-  token?: string;
-  displayName?: string;
-}
-
-export interface TicketResponse {
-  ok: boolean;
-  ticketId?: string;
-  message?: string;
-}
   function formatLastActive(iso: string): string {
     try {
       const d = new Date(iso);
