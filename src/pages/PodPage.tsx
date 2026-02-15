@@ -97,15 +97,29 @@ export default function PodPage() {
   const [asking, setAsking] = useState(false);
   const [escalating, setEscalating] = useState(false);
 
-    const leaderId = useMemo(() => {
-    const p: any = pod;
-    return p?.leaderId ?? p?.leaderUserId ?? p?.members?.[0]?.userId ?? null;
-  }, [pod]);
+const leaderId = useMemo(() => {
+  const p: any = pod;
+  return p?.leaderId ?? p?.leaderUserId ?? p?.members?.[0]?.userId ?? null;
+}, [pod]);
 
-  const meLeader = useMemo(() => {
-    layer?: string;
-    links?: Array<string | AskLink>;
+const meLeader = useMemo(() => {
+  if (!userId) return false;
+  return leaderId === userId;
+}, [leaderId, userId]);
+
+const members = useMemo<PodMemberView[]>(() => {
+  const mems = (pod?.members ?? []) as PodMemberView[];
+
+  return mems.map((m) => {
+    const roles = (m as any).roles ?? (m as any).rolePrefs ?? [];
+    const lastActive =
+      (m as any).lastActive ??
+      ((m as any).lastActiveAt ? formatLastActive((m as any).lastActiveAt) : undefined);
+
+    return { ...m, roles, lastActive };
   });
+}, [pod]);
+
 
 export type CourseInfo = {
   courseCode: string;
