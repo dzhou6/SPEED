@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, qs } from "../api/client";
 import { useLocalStorage } from "../hooks/useLocalStorage";
-import { useToast } from "../components/Toast";
+import { toast } from "../components/Toast";
 import type {
   AskResponse,
   CourseInfo,
@@ -47,7 +47,6 @@ function fmtActive(iso?: string | null) {
 
 export default function MatchFeed() {
   const nav = useNavigate();
-  const toast = useToast();
 
   const [userId] = useLocalStorage<string | null>("cc_userId", null);
   const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
@@ -199,12 +198,54 @@ export default function MatchFeed() {
 
       {hasPod ? (
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-          <div className="muted">You’re in a pod.</div>
+          <div className="muted">You're in a pod.</div>
           <button className="btn" onClick={() => nav("/pod")}>
             Go to Pod
           </button>
         </div>
       ) : null}
+
+      {courseInfo?.syllabusText && (
+        <details style={{ marginTop: "16px", marginBottom: "16px" }} open>
+          <summary style={{ 
+            cursor: "pointer", 
+            fontWeight: "bold", 
+            color: "var(--primary2)",
+            fontSize: "0.95em"
+          }}>
+            Full Course Syllabus
+          </summary>
+          <div style={{ 
+            marginTop: "8px", 
+            padding: "16px", 
+            background: "var(--card)", 
+            borderRadius: "8px",
+            whiteSpace: "pre-wrap",
+            fontSize: "0.8em",
+            color: "var(--text)",
+            lineHeight: "1.6",
+            border: "1px solid var(--border)",
+            maxHeight: "500px",
+            overflowY: "auto",
+            overflowX: "hidden",
+            fontFamily: "monospace"
+          }}>
+            {courseInfo.syllabusText}
+          </div>
+          <div style={{ 
+            marginTop: "12px", 
+            padding: "10px",
+            fontSize: "0.85em", 
+            color: "var(--muted)",
+            fontStyle: "italic",
+            background: "rgba(255,122,178,0.1)",
+            borderRadius: "6px",
+            border: "1px solid rgba(255,122,178,0.2)"
+          }}>
+            💡 Too much to read? Use the chatbox below to ask questions instead!
+          </div>
+        </details>
+      )}
 
       <div style={{ marginTop: 16 }}>
         <h2>People</h2>
