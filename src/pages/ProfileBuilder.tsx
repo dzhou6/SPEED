@@ -5,8 +5,6 @@ import type { RolePref } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { toast } from "../components/Toast";
 
-
-
 // Check if string is a valid MongoDB ObjectId format (24 hex characters)
 function isValidObjectId(id: string | null): boolean {
   if (!id) return false;
@@ -30,13 +28,14 @@ export default function ProfileBuilder() {
   const [userId] = useLocalStorage<string | null>("cc_userId", null);
   const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
   const [storedName, setStoredName] = useLocalStorage<string | null>("cc_displayName", null);
-  const [contactDiscord, setContactDiscord] = useState("");
-  const [contactLinkedIn, setContactLinkedIn] = useState("");
+
   const [displayName, setDisplayName] = useState(storedName || "");
   const [roles, setRoles] = useState<RolePref[]>(["Frontend"]);
   const [skills, setSkills] = useState<string[]>(["JavaScript", "React"]);
   const [availability, setAvailability] = useState<string[]>(["Mon evening", "Wed evening"]);
   const [goals, setGoals] = useState<string>("exam prep");
+  const [contactDiscord, setContactDiscord] = useState<string>("");
+  const [contactLinkedIn, setContactLinkedIn] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   const canSave = useMemo(() => roles.length >= 1 && roles.length <= 2, [roles]);
@@ -91,18 +90,41 @@ if (!canSave) return toast("Choose 1–2 roles.", "error");
 setLoading(true);
 try {
   // Backend expects rolePrefs and uses header X-User-Id (so pass userId to api() for header)
-  const payload = {
+  const discord = contactDiscord.trim();
+  const linkedin = contactLinkedIn.trim();
+  
+  const payload: any = {
     courseCode,
     displayName: displayName.trim() || undefined,
     rolePrefs: roles,
     skills,
     availability,
     goals: goals.trim() || undefined,
-    contact: {
-      discord: contactDiscord.trim() || undefined,
-      linkedin: contactLinkedIn.trim() || undefined,
-    },
   };
+  
+  // Only include contact if at least one field is provided
+  // Only include fields that have actual values (not empty strings)
+  if (discord || linkedin) {
+    payload.contact = {};
+    if (discord) {
+      payload.contact.discord = discord;
+    }
+    if (linkedin) {
+      // Validate LinkedIn URL format before sending
+      try {
+        new URL(linkedin);
+        payload.contact.linkedin = linkedin;
+      } catch {
+        toast("LinkedIn must be a valid URL (e.g., https://linkedin.com/in/yourprofile)", "error");
+        setLoading(false);
+        return;
+      }
+    }
+    // Remove contact object if it's empty after validation
+    if (Object.keys(payload.contact).length === 0) {
+      delete payload.contact;
+    }
+  }
 
   await api("/profile", "POST", payload, userId);
 
@@ -215,27 +237,16 @@ try {
         <label className="label">Goals (optional)</label>
         <input className="input" value={goals} onChange={(e) => setGoals(e.target.value)} placeholder="exam prep, homework help..." />
       </div>
-      
-      <div className="field">
-        <label>Discord</label>
-        <input
-          type="text"
-          placeholder="e.g. davidzhou#1234"
-          value={contactDiscord}
-          onChange={(e) => setContactDiscord(e.target.value)}
-        />
+
+      <div className="row">
+        <label className="label">Discord (optional)</label>
+        <input className="input" value={contactDiscord} onChange={(e) => setContactDiscord(e.target.value)} placeholder="username#1234" />
       </div>
 
-      <div className="field">
-        <label>LinkedIn</label>
-        <input
-          type="url"
-          placeholder="https://linkedin.com/in/yourname"
-          value={contactLinkedIn}
-          onChange={(e) => setContactLinkedIn(e.target.value)}
-        />
+      <div className="row">
+        <label className="label">LinkedIn (optional)</label>
+        <input className="input" value={contactLinkedIn} onChange={(e) => setContactLinkedIn(e.target.value)} placeholder="https://linkedin.com/in/yourprofile" />
       </div>
-
 
       <button className="btn primary" onClick={save} disabled={loading}>
         {loading ? "Saving..." : "Save profile"}

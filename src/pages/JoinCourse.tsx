@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
-import type { DemoAuthResponse } from "../api/types";
+import { api, qs } from "../api/client";
+import type { DemoAuthResponse, CourseInfo } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { toast } from "../components/Toast";
 
@@ -12,16 +12,60 @@ export default function JoinCourse() {
   const [, setUserId] = useLocalStorage<string | null>("cc_userId", null);
   const [, setDisplayName] = useLocalStorage<string | null>("cc_displayName", null);
   const [loading, setLoading] = useState(false);
+  const [courseInfo, setCourseInfo] = useState<CourseInfo | null>(null);
+  const [loadingCourseInfo, setLoadingCourseInfo] = useState(false);
 
   const normalized = useMemo(() => courseCode.trim().toUpperCase(), [courseCode]);
+
+  // Fetch course info when course code changes
+  useEffect(() => {
+    async function fetchCourseInfo() {
+      if (!normalized || normalized.length < 3) {
+        setCourseInfo(null);
+        return;
+      }
+      setLoadingCourseInfo(true);
+      try {
+        const course = await api<CourseInfo>(`/course${qs({ courseCode: normalized })}`, "GET");
+        setCourseInfo(course);
+      } catch (e) {
+        // Course not found or doesn't exist yet - that's okay
+        setCourseInfo(null);
+      } finally {
+        setLoadingCourseInfo(false);
+      }
+    }
+    
+    // Debounce the API call
+    const timeoutId = setTimeout(fetchCourseInfo, 500);
+    return () => clearTimeout(timeoutId);
+  }, [normalized]);
 
   async function join() {
     if (!normalized) return toast("Enter a course code.", "error");
     setLoading(true);
     try {
+      // Check if user already exists
+      const existingUserId = localStorage.getItem("cc_userId");
+      const isExistingUser = existingUserId && /^[0-9a-fA-F]{24}$/.test(existingUserId);
+      
+      if (isExistingUser) {
+        // Add course to existing user
+        try {
+          await api(`/user/add-course${qs({ courseCode: normalized })}`, "POST", undefined, existingUserId);
+          setStoredCourse(normalized);
+          toast(`Added ${normalized}! Refreshing courses...`, "success");
+          // Navigate to feed - Layout will reload courses when courseCode changes
+          nav("/feed");
+          return;
+        } catch (e: any) {
+          // If add-course fails, fall through to create new user
+          console.log("Could not add course to existing user, creating new user", e);
+        }
+      }
+      
       // Clear any old invalid userIds first
-      const oldUserId = localStorage.getItem("cc_userId");
-      if (oldUserId && !/^[0-9a-fA-F]{24}$/.test(oldUserId)) {
+      if (existingUserId && !/^[0-9a-fA-F]{24}$/.test(existingUserId)) {
         localStorage.removeItem("cc_userId");
         localStorage.removeItem("cc_courseCode");
         localStorage.removeItem("cc_displayName");
@@ -77,11 +121,145 @@ export default function JoinCourse() {
           className="input"
           value={courseCode}
           onChange={(e) => setCourseCode(e.target.value)}
-          placeholder="CS471"
+          placeholder="CS471, CS101, MATH200, CS330"
         />
       </div>
 
-      <button className="btn primary" onClick={join} disabled={loading}>
+      {/* Display course information if available */}
+      {loadingCourseInfo && normalized.length >= 3 && (
+        <div className="muted" style={{ marginTop: "8px" }}>Loading course info...</div>
+      )}
+
+      {courseInfo && !loadingCourseInfo && (
+        <div className="card" style={{ 
+          marginTop: "16px", 
+          padding: "16px"
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: "12px", color: "var(--text)" }}>
+            {courseInfo.courseName || courseInfo.courseCode}
+          </h3>
+          
+          {courseInfo.professor && (
+            <div style={{ marginBottom: "8px", color: "var(--text)" }}>
+              <strong style={{ color: "var(--primary2)" }}>Professor:</strong> {courseInfo.professor}
+            </div>
+          )}
+          
+          {courseInfo.location && (
+            <div style={{ marginBottom: "8px", color: "var(--text)" }}>
+              <strong style={{ color: "var(--primary2)" }}>Location:</strong> {courseInfo.location}
+            </div>
+          )}
+          
+          {courseInfo.officeHours && (
+            <div style={{ marginBottom: "8px", color: "var(--text)" }}>
+              <strong style={{ color: "var(--primary2)" }}>Office Hours:</strong> {courseInfo.officeHours}
+            </div>
+          )}
+
+          {courseInfo.classPolicy && (
+            <details style={{ marginTop: "12px", marginBottom: "8px" }}>
+              <summary style={{ 
+                cursor: "pointer", 
+                fontWeight: "bold", 
+                color: "var(--primary2)",
+                fontSize: "0.95em"
+              }}>
+                Class Policies
+              </summary>
+              <div style={{ 
+                marginTop: "8px", 
+                padding: "12px", 
+                background: "var(--card)", 
+                borderRadius: "8px",
+                whiteSpace: "pre-wrap",
+                fontSize: "0.9em",
+                color: "var(--text)",
+                lineHeight: "1.5",
+                border: "1px solid var(--border)"
+              }}>
+                {courseInfo.classPolicy}
+              </div>
+            </details>
+          )}
+
+          {courseInfo.latePolicy && (
+            <details style={{ marginTop: "8px", marginBottom: "8px" }}>
+              <summary style={{ 
+                cursor: "pointer", 
+                fontWeight: "bold", 
+                color: "var(--primary2)",
+                fontSize: "0.95em"
+              }}>
+                Late Submission Policy
+              </summary>
+              <div style={{ 
+                marginTop: "8px", 
+                padding: "12px", 
+                background: "var(--card)", 
+                borderRadius: "8px",
+                whiteSpace: "pre-wrap",
+                fontSize: "0.9em",
+                color: "var(--text)",
+                lineHeight: "1.5",
+                border: "1px solid var(--border)"
+              }}>
+                {courseInfo.latePolicy}
+              </div>
+            </details>
+          )}
+
+          {courseInfo.syllabusText && (
+            <details style={{ marginTop: "8px" }} open>
+              <summary style={{ 
+                cursor: "pointer", 
+                fontWeight: "bold", 
+                color: "var(--primary2)",
+                fontSize: "0.95em"
+              }}>
+                Full Course Syllabus
+              </summary>
+              <div style={{ 
+                marginTop: "8px", 
+                padding: "16px", 
+                background: "var(--card)", 
+                borderRadius: "8px",
+                whiteSpace: "pre-wrap",
+                fontSize: "0.8em",
+                color: "var(--text)",
+                lineHeight: "1.6",
+                border: "1px solid var(--border)",
+                maxHeight: "500px",
+                overflowY: "auto",
+                overflowX: "hidden",
+                fontFamily: "monospace"
+              }}>
+                {courseInfo.syllabusText}
+              </div>
+              <div style={{ 
+                marginTop: "12px", 
+                padding: "10px",
+                fontSize: "0.85em", 
+                color: "var(--muted)",
+                fontStyle: "italic",
+                background: "rgba(255,122,178,0.1)",
+                borderRadius: "6px",
+                border: "1px solid rgba(255,122,178,0.2)"
+              }}>
+                💡 Too much to read? Use the chatbox to ask questions instead!
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+
+      {!courseInfo && !loadingCourseInfo && normalized.length >= 3 && (
+        <div className="muted" style={{ marginTop: "8px", fontSize: "0.9em" }}>
+          Course "{normalized}" not found. You can still join, but course information won't be available.
+        </div>
+      )}
+
+      <button className="btn primary" onClick={join} disabled={loading} style={{ marginTop: "16px" }}>
         {loading ? "Joining..." : "Join"}
       </button>
 

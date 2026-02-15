@@ -5,19 +5,10 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
 
-type PodMemberView = PodMember & {
-  roles?: string[];
-  skills?: string[];
-  lastActive?: string;
-  // allow older/newer contact shapes during hackathon
-  contact?: PodMember["contact"] & { email?: string | null };
-};
-
-
 function isUnlocked(meId: string, m: PodMember, unlockedIds?: string[]) {
   if (m.userId === meId) return true;
   if (m.contactUnlocked === true) return true;
-  //if (m.mutualAccepted === true) return true;
+  if (m.mutualAccepted === true) return true;
   // Check if userId is in unlockedContactIds array from backend
   if (unlockedIds?.includes(m.userId)) return true;
   // Some backends might embed something else; default locked.
@@ -51,30 +42,24 @@ export default function PodPage() {
   const [escalating, setEscalating] = useState(false);
 
   const meLeader = useMemo(() => {
-  if (!userId) return false;
-  return (pod?.leaderId ?? pod?.leaderUserId) === userId;
-}, [pod?.leaderId, pod?.leaderUserId, userId]);
+    if (!userId) return false;
+    return pod?.leaderId === userId || pod?.leaderUserId === userId;
+  }, [pod?.leaderId, pod?.leaderUserId, userId]);
 
-
-const members = useMemo<PodMemberView[]>(() => {
-  const mems = (pod?.members ?? []) as PodMemberView[];
-
-  return mems.map((m) => {
-    const roles = (m as any).roles ?? m.rolePrefs ?? [];
-    const lastActive =
-      (m as any).lastActive ??
-      ((m as any).lastActiveAt ? formatLastActive((m as any).lastActiveAt) : undefined);
-
-    return { ...m, roles, lastActive };
-  });
-}, [pod?.members]);
-
-const hasPod = useMemo(() => {
-  if (pod?.hasPod === false) return false;
-  return !!pod?.podId && members.length > 0;
-}, [pod?.hasPod, pod?.podId, members.length]);
-
-
+  const members = useMemo(() => {
+    const mems = pod?.members || [];
+    // Map rolePrefs to roles for compatibility
+    return mems.map(m => ({
+      ...m,
+      roles: m.roles || m.rolePrefs,
+      lastActive: m.lastActive || (m.lastActiveAt ? formatLastActive(m.lastActiveAt) : undefined)
+    }));
+  }, [pod?.members]);
+  const hasPod = useMemo(() => {
+    if (pod?.hasPod === false) return false;
+    return !!pod?.podId && members.length > 0;
+  }, [pod?.hasPod, pod?.podId, members.length]);
+  
   function formatLastActive(iso: string): string {
     try {
       const d = new Date(iso);
@@ -133,8 +118,8 @@ const hasPod = useMemo(() => {
     if (!courseCode || !userId) return toast("Missing session.", "error");
     if (!hubDraft.trim()) return toast("Paste a Google Doc/Sheet link.", "error");
     try {
-      const payload: SetHubRequest = { courseCode, userId, hubLink: hubDraft.trim() };
-      await api("/pod/hub", "POST", payload);
+      const payload: SetHubRequest = { courseCode, hubLink: hubDraft.trim() };
+      await api("/pod/hub", "POST", payload, userId);
       toast("Pod Hub link set.", "success");
       await fetchPod(false);
     } catch (e: any) {
@@ -147,17 +132,25 @@ const hasPod = useMemo(() => {
     if (!question.trim()) return toast("Type a question.", "error");
     setAsking(true);
     setTicket(null);
+    setAi(null); // Clear previous answer when asking new question
     try {
       const res = await api<AskResponse>("/ask", "POST", {
         courseCode,
-        userId,
         question: question.trim(),
-      });
-      setAi(res || { layer: "Layer ?", answer: "No response." });
+      }, userId);
+      setAi(res || { layer: 1, answer: "No response." });
     } catch (e: any) {
       toast(e?.message || "Ask failed.", "error");
     } finally {
       setAsking(false);
+    }
+  }
+
+  function handleQuestionChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setQuestion(e.target.value);
+    // Clear previous answer when user starts typing a new question
+    if (ai) {
+      setAi(null);
     }
   }
 
@@ -168,9 +161,8 @@ const hasPod = useMemo(() => {
     try {
       const res = await api<TicketResponse>("/tickets", "POST", {
         courseCode,
-        userId,
         question: question.trim(),
-      });
+      }, userId);
       setTicket(res || { message: "Ticket created." });
       toast("Ticket created. Use Pod Hub to coordinate.", "success");
       await fetchPod(false);
@@ -269,8 +261,9 @@ const hasPod = useMemo(() => {
               <input
                 className="input"
                 value={question}
-                onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Ask a question (logistics, pointers, or escalate)"
+                onChange={handleQuestionChange}
+                onKeyDown={(e) => e.key === "Enter" && !asking && askAutoRoute()}
+                placeholder="Ask a question about the syllabus"
               />
             </div>
 

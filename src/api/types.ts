@@ -1,131 +1,101 @@
-// src/api/types.ts
+export type Role = "Frontend" | "Backend" | "Designer" | "PM" | "Tester";
 
-export type Role =
-  | "Frontend"
-  | "Backend"
-  | "Matching"
-  | "Platform"
-  | "DevOps"
-  | "Design"
-  | "Other";
-
-export type RolePref = Role;
-
-export type SwipeDecision = "accept" | "pass";
-
-export interface ContactInfo {
-  discord?: string | null;
-  linkedin?: string | null;
-
-  // some pages reference contact.email, so allow it
-  email?: string | null;
-}
-
-// Used by MatchFeed cards
-export interface RecommendationUser {
-  userId: string;
-
-  displayName?: string;
-  bio?: string | null;
-
-  // keep both to avoid frontend/back-end naming mismatches during hackathon
-  rolePrefs?: Role[];
-  roles?: Role[];
-
-  // MatchFeed currently uses these
-  skills?: string[];
-  availability?: string[];
-  reasons?: string[];
-
-  // “lastActiveAt” is canonical; allow null/undefined
-  lastActiveAt?: string | null;
-
-  // optional legacy convenience field (if you still use it somewhere)
-  lastActive?: string;
-
-  // anything else the backend might attach
-  score?: number;
-}
-
-// Used by Pod page member list
-export interface PodMember {
-  userId: string;
-  displayName?: string;
-
-  rolePrefs?: Role[];
-  roles?: Role[];
-
-  skills?: string[];
-  availability?: string[];
-
-  mutualAccepted?: boolean;
-
-  // your PodPage checks this
-  contactUnlocked?: boolean;
-
-  // last-active fields that some UIs compute/display
-  lastActiveAt?: string | null;
-  lastActive?: string;
-
-  contact?: ContactInfo;
-}
-
-// IMPORTANT: keep PodState as a single interface (not a union)
-export interface PodState {
-  hasPod: boolean;
-
-  podId?: string;
-  courseCode?: string;
-
-  members?: PodMember[];
-
-  leaderUserId?: string;
-  leaderId?: string;
-  hubLink?: string | null;
-
-  unlockedContactIds?: string[];
-}
-
-export interface RecommendationsResponse {
-  // some code uses rec.candidates, some uses rec.recommendations
-  candidates?: RecommendationUser[];
-  recommendations?: RecommendationUser[];
-  pod?: PodState;
-}
-
-export interface SwipeRequest {
-  userId: string; // actor (current user)
-  courseCode: string;
-  targetUserId: string;
-  decision: SwipeDecision;
-}
-
-export interface SetHubRequest {
-  userId: string;
-  courseCode: string;
-  hubLink: string;
-}
-
-export type AskLink = { title?: string; url: string };
-
-export interface AskResponse {
-  answer: string;
-
-  // PodPage references these
-  layer?: string;
-  links?: Array<string | AskLink>;
-}
-
-// JoinCourse.tsx expects res.displayName
 export interface DemoAuthResponse {
   userId: string;
-  courseCode: string;
-  token?: string;
   displayName?: string;
 }
 
-export interface TicketResponse {
-  ok: boolean;
+export type CourseInfo = {
+  courseCode: string;
+  courseName?: string;
+  syllabusText?: string;
+  professor?: string;
+  location?: string;
+  classPolicy?: string;
+  latePolicy?: string;
+  officeHours?: string;
+};
+
+export type UserCoursesResponse = {
+  courseCodes: string[];
+  courses?: Array<{
+    courseCode: string;
+    courseName?: string;
+  }>;
+};
+
+export type ContactInfo = {
+  email?: string;
+  discord?: string;
+  linkedin?: string;
+};
+
+export type Profile = {
+  displayName?: string;
+  rolePrefs?: Role[];
+  skills?: string[];
+  availability?: string[];
+  goals?: string | null;
+  contact?: ContactInfo | null;
+};
+
+export type RecommendationUser = {
+  userId: string;
+  displayName: string;
+  rolePrefs: Role[];
+  skills: string[];
+  availability: string[];
+  lastActiveAt?: string | null;
+  score: number;
+  reasons: string[];
+};
+
+export type RecommendationsResponse = {
+  candidates: RecommendationUser[];
+};
+
+export type PodMember = {
+  userId: string;
+  displayName: string;
+  rolePrefs: Role[];
+  skills: string[];
+  availability: string[];
+  lastActiveAt?: string | null;
+};
+
+export type PodState =
+  | { hasPod: false }
+  | {
+      hasPod: true;
+      podId: string;
+      courseCode: string;
+      leaderId?: string;
+      leaderUserId?: string;
+      members: PodMember[];
+      memberIds?: string[];
+      unlockedContactIds?: string[];
+      hubLink?: string | null;
+    };
+
+export type SwipeRequest = {
+  courseCode: string;
+  targetUserId: string;
+  decision: "accept" | "pass";
+};
+
+export type SetHubRequest = {
+  courseCode: string;
+  hubLink: string;
+};
+
+export type AskResponse = {
+  layer: 1 | 2 | 3;
+  answer: string;
+  links?: Array<{ title: string; url: string }> | string[];
+};
+
+export type TicketResponse = {
+  ok?: boolean;
   ticketId?: string;
   message?: string;
-}
+};

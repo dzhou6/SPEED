@@ -3,70 +3,48 @@ from pymongo.errors import ServerSelectionTimeoutError, ConnectionFailure
 import certifi
 import logging
 import os
-
 from .config import MONGO_URI, MONGO_DB
 
 logger = logging.getLogger(__name__)
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    v = os.getenv(name)
+    if v is None:
+        return default
+    return v.strip().lower() in ("1", "true", "yes", "y", "on")
+
 # Dev-only escape hatch if your network/VPN/AV is breaking Atlas TLS.
 # Put this in backend/.env ONLY if needed:
 #   MONGO_TLS_ALLOW_INVALID=true
-ALLOW_INVALID_TLS = os.getenv("MONGO_TLS_ALLOW_INVALID", "false").lower() in ("1", "true", "yes")
+ALLOW_INVALID_TLS = _env_flag("MONGO_TLS_ALLOW_INVALID", False)
 
-
-def _parse_bool(v: str | None) -> bool | None:
-    if v is None:
-        return None
-    s = v.strip().lower()
-    if s in ("1", "true", "yes", "y", "on"):
-        return True
-    if s in ("0", "false", "no", "n", "off"):
-        return False
-    return None
-
+# Optional override:
+#   MONGO_TLS=true/false
+MONGO_TLS_OVERRIDE = os.getenv("MONGO_TLS")
 
 def _should_use_tls(uri: str) -> bool:
-    # Explicit override (useful for local Mongo or weird corp proxies)
-    override = _parse_bool(os.getenv("MONGO_TLS"))
-    if override is not None:
-        return override
-
-    u = (uri or "").lower()
-
-    # If someone explicitly turned it off in the URI, respect it.
-    if "tls=false" in u or "ssl=false" in u:
-        return False
-
-    # Atlas / SRV almost always wants TLS.
+    if MONGO_TLS_OVERRIDE is not None:
+        return _env_flag("MONGO_TLS", False)
+    u = uri.lower()
     if u.startswith("mongodb+srv://"):
         return True
-    if "mongodb.net" in u:
-        return True
+    return ("tls=true" in u) or ("ssl=true" in u)
 
-    # If it’s explicitly enabled in the URI, do it.
-    if "tls=true" in u or "ssl=true" in u:
-        return True
-
-    return False
-
-
-USE_TLS = _should_use_tls(MONGO_URI)
+mongo_kwargs = dict(
+    serverSelectionTimeoutMS=8000,
+    connectTimeoutMS=8000,
+    socketTimeoutMS=8000,
+)
 
 try:
-    kwargs = dict(
-        serverSelectionTimeoutMS=8000,
-        connectTimeoutMS=8000,
-        socketTimeoutMS=8000,
-    )
-
-    if USE_TLS:
-        kwargs.update(
+    if _should_use_tls(MONGO_URI):
+        mongo_kwargs.update(
             tls=True,
             tlsCAFile=certifi.where(),
             tlsAllowInvalidCertificates=ALLOW_INVALID_TLS,
         )
 
-    client = AsyncIOMotorClient(MONGO_URI, **kwargs)
+    client = AsyncIOMotorClient(MONGO_URI, **mongo_kwargs)
     db = client[MONGO_DB]
 except Exception as e:
     logger.error(f"Failed to initialize MongoDB client: {e}")

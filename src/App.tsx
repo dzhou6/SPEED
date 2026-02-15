@@ -5,7 +5,7 @@ import ProfileBuilder from "./pages/ProfileBuilder";
 import MatchFeed from "./pages/MatchFeed";
 import PodPage from "./pages/PodPage";
 import { useLocalStorage } from "./hooks/useLocalStorage";
-import type { ReactNode } from "react";
+
 // Check if string is a valid MongoDB ObjectId format (24 hex characters)
 function isValidObjectId(id: string | null): boolean {
   if (!id) return false;
@@ -13,8 +13,7 @@ function isValidObjectId(id: string | null): boolean {
   return /^[0-9a-fA-F]{24}$/.test(id);
 }
 
-function RequireSession({ children }: { children: ReactNode }) {
-
+function RequireSession({ children }: { children: JSX.Element }) {
   const [userId] = useLocalStorage<string | null>("cc_userId", null);
   const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
   
