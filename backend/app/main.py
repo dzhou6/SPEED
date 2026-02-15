@@ -396,7 +396,7 @@ async def set_hub(body: HubIn, x_user_id: str | None = Header(default=None, alia
     return {"ok": True}
 
 async def ask_ai_syllabus(question: str, syllabus_text: str) -> str:
-    """Use OpenAI to answer questions about the syllabus intelligently."""
+    """Use OpenAI to answer questions about the syllabus intelligently with deep analysis."""
     try:
         from openai import OpenAI
         
@@ -407,35 +407,81 @@ async def ask_ai_syllabus(question: str, syllabus_text: str) -> str:
         
         client = OpenAI(api_key=api_key)
         
-        # More generic system prompt that works for all courses
+        # Enhanced system prompt for comprehensive syllabus analysis
         system_prompt = (
-            "You are a helpful and friendly teaching assistant for a university course. "
-            "Your job is to answer student questions about the course syllabus in a natural, conversational way. "
-            "DO NOT just copy-paste text from the syllabus. Instead, read the syllabus carefully and provide "
-            "a clear, helpful answer in your own words. Be concise but complete. "
-            "When mentioning specific dates, times, percentages, or policies, be accurate and include the exact details. "
-            "If the answer is not in the syllabus, say so clearly and suggest they contact the instructor. "
-            "Format your answer in a friendly, easy-to-read way with proper structure."
+            "You are an expert teaching assistant who thoroughly analyzes course syllabi. "
+            "Your job is to answer student questions by reading and understanding the ENTIRE syllabus comprehensively. "
+            "\n\n"
+            "CRITICAL: You must read through ALL sections of the syllabus, including:\n"
+            "- Course information, schedule, and calendar\n"
+            "- Assignment descriptions, due dates, and submission policies\n"
+            "- Grading policies, rubrics, and percentages\n"
+            "- Late work policies, extensions, and penalties\n"
+            "- Attendance policies and participation requirements\n"
+            "- Office hours, contact information, and communication policies\n"
+            "- Prerequisites, learning objectives, and course structure\n"
+            "- Resources, textbooks, and materials\n"
+            "- Academic integrity and code of conduct\n"
+            "- Any other relevant sections\n"
+            "\n"
+            "ANALYSIS PROCESS:\n"
+            "1. Read the ENTIRE syllabus from start to finish\n"
+            "2. Identify ALL sections that relate to the question (directly or indirectly)\n"
+            "3. Look for information in multiple places (e.g., deadlines might be in schedule AND assignment sections)\n"
+            "4. Cross-reference related policies (e.g., late policy might affect multiple assignment types)\n"
+            "5. When you find relevant information, note the SURROUNDING CONTEXT (the sentences/paragraphs before and after)\n"
+            "6. Synthesize all relevant information into a complete, accurate answer\n"
+            "\n"
+            "ANSWER GUIDELINES:\n"
+            "- Be thorough - include ALL relevant details from the syllabus\n"
+            "- When citing information, include the SURROUNDING CONTEXT, not just the title or section name\n"
+            "  Example: Instead of saying 'See Late Policy section', include the actual policy text and surrounding context\n"
+            "- Include the full context around relevant information (the sentences/paragraphs that provide background or clarification)\n"
+            "- Mention specific dates, times, percentages, and exact policy wording when relevant\n"
+            "- If information appears in multiple sections, reference all relevant parts with their surrounding context\n"
+            "- Use natural, conversational language (don't copy-paste verbatim, but include enough context to be helpful)\n"
+            "- Structure your answer clearly with paragraphs or bullets for readability\n"
+            "- If the answer isn't in the syllabus, clearly state that and suggest contacting the instructor"
         )
         
+        # Calculate syllabus length for context
+        syllabus_length = len(syllabus_text)
+        word_count = len(syllabus_text.split())
+        
         user_prompt = (
-            f"Student Question: {question}\n\n"
-            f"Course Syllabus:\n{syllabus_text}\n\n"
-            f"Please answer the student's question in a natural, conversational way. "
-            f"Read the syllabus carefully and explain the answer clearly in your own words. "
-            f"Do NOT just copy text from the syllabus - synthesize the information and explain it naturally. "
-            f"Be accurate with dates, times, and specific details. "
-            f"If the information is not in the syllabus, say 'I don't see that information in the syllabus. Please contact your instructor for clarification.'"
+            f"STUDENT QUESTION: {question}\n\n"
+            f"COURSE SYLLABUS ({word_count} words, {syllabus_length} characters):\n"
+            f"{'='*70}\n"
+            f"{syllabus_text}\n"
+            f"{'='*70}\n\n"
+            f"IMPORTANT INSTRUCTIONS:\n"
+            f"1. Read through the ENTIRE syllabus above (all {word_count} words) - do not skip any sections\n"
+            f"2. Look for information related to the question in ALL sections of the syllabus\n"
+            f"3. Pay special attention to:\n"
+            f"   - Schedules, calendars, and dates\n"
+            f"   - Policies (late work, attendance, grading, etc.)\n"
+            f"   - Assignment descriptions and requirements\n"
+            f"   - Office hours and contact information\n"
+            f"   - Any other relevant details\n"
+            f"4. When you find relevant information, include the SURROUNDING CONTEXT:\n"
+            f"   - Include the sentences/paragraphs before and after the key information\n"
+            f"   - Don't just mention the section title - include the actual content and context\n"
+            f"   - This helps students understand the full picture, not just isolated facts\n"
+            f"5. If the question relates to multiple topics, check ALL relevant sections and include context from each\n"
+            f"6. Synthesize the information from across the syllabus into a comprehensive answer\n"
+            f"7. Include specific details (exact dates, times, percentages, policy wording) WITH their surrounding context\n"
+            f"8. If information is not found anywhere in the syllabus, clearly state that\n\n"
+            f"Now provide a thorough, accurate answer that includes the surrounding context of relevant information:"
         )
         
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o-mini",  # Cheaper model with good instruction following
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
-            temperature=0.2,  # Lower temperature for more accurate, consistent answers
-            max_tokens=800  # Increased for more detailed responses
+            temperature=0.1,  # Very low temperature for accurate, focused analysis
+            max_tokens=1200  # Increased for comprehensive answers
         )
         
         answer = response.choices[0].message.content.strip()
