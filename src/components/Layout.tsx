@@ -65,8 +65,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         <div className="brand">
           <div className="logo">💘</div>
           <div style={{ flex: 1 }}>
-            <div className="title">CourseCupid / StackMatch</div>
-            <div className="subtitle">Hackathon pod matchmaking MVP</div>
+            <div className="title">CourseCupid</div>
+            <div className="subtitle">Study pods, lab partners, and project teammates for your course</div>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             {showCourseSwitcher && (

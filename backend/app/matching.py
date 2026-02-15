@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 """
-CourseCupid / StackMatch MVP ranking.
+CourseCupid MVP ranking.
 
 We prioritize role coverage first (fill missing roles in a 4-person pod),
 then overlapping availability, then stack compatibility (shared tools and known

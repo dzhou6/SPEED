@@ -110,9 +110,9 @@ export default function JoinCourse() {
 
   return (
     <div className="card">
-      <h1>Landing / Join Course</h1>
+      <h1>Join your course</h1>
       <p className="muted">
-        Demo login only. No real auth. This is built for a clean 2-minute judge flow.
+        Quick start (demo mode): no passwords. Join your class, build a learning profile, and CourseCupid will suggest study partners and project teammates. 💘📚
       </p>
 
       <div className="row">
