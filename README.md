@@ -1,6 +1,6 @@
-# CourseCupid MVP
+# CourseCupid / StackMatch MVP
 
-A course collaboration platform that helps students find study partners and project teammates, get help quickly, and build a shared "Study Hub" for notes, links, and tasks. 💘📚
+A course collaboration platform that helps students find study partners, get help quickly, and access course knowledge.
 
 ## 🚀 Quick Start (2-Minute Demo)
 

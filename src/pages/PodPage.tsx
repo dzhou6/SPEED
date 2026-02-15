@@ -163,8 +163,8 @@ export default function PodPage() {
         courseCode,
         question: question.trim(),
       }, userId);
-      setTicket(res || { message: "Study ticket created." });
-      toast("Study ticket created. Use Pod Hub to coordinate.", "success");
+      setTicket(res || { message: "Ticket created." });
+      toast("Ticket created. Use Pod Hub to coordinate.", "success");
       await fetchPod(false);
     } catch (e: any) {
       toast(e?.message || "Ticket failed.", "error");
@@ -175,21 +175,21 @@ export default function PodPage() {
 
   return (
     <div className="card">
-      <h1>Study Pod</h1>
+      <h1>Pod Page</h1>
       <p className="muted">
-        Contact cards unlock after mutual invites. Your Study Hub (notes + links) is set by the pod leader. 💘📚
+        Contact cards unlock only after mutual accept. Pod Hub is set by leader.
       </p>
 
       {!hasPod ? (
         <div className="empty">
-          <div className="emptyTitle">No study pod yet</div>
-          <div className="muted">Go to the Study Match Feed and send a few invites 💌</div>
+          <div className="emptyTitle">No pod yet</div>
+          <div className="muted">Go to the Match Feed and Accept a few people.</div>
         </div>
       ) : (
         <>
           <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
             <div className="muted">
-              Pod ID: <b>{pod?.podId || "unknown"}</b> · Members: <b>{members.length}</b>/4
+              Pod: <b>{pod?.podId || "unknown"}</b> · Members: <b>{members.length}</b>/4
             </div>
             <button className="btn" onClick={() => fetchPod(true)} disabled={loadingPod}>
               {loadingPod ? "Refreshing..." : "Refresh"}
@@ -197,7 +197,7 @@ export default function PodPage() {
           </div>
 
           <div className="section">
-            <div className="label">Study pod members</div>
+            <div className="label">Pod members</div>
             <div className="grid">
               {members.map((m) => {
                 const unlocked = userId ? isUnlocked(userId, m, pod?.unlockedContactIds) : false;
@@ -233,7 +233,7 @@ export default function PodPage() {
             <div className="label">Pod Hub</div>
             {pod?.hubLink ? (
               <div className="notice">
-                Study Hub:{" "}
+                Hub link:{" "}
                 <a className="link" href={pod.hubLink} target="_blank" rel="noreferrer">
                   {pod.hubLink}
                 </a>
@@ -247,32 +247,32 @@ export default function PodPage() {
                   placeholder="Paste Google Doc/Sheet link"
                 />
                 <button className="btn primary" onClick={setHub}>
-                  Set Study Hub
+                  Set Pod Hub link
                 </button>
               </div>
             ) : (
-              <div className="muted">Waiting for the leader to set the Study Hub.</div>
+              <div className="muted">Waiting for leader to set Pod Hub.</div>
             )}
           </div>
 
           <div className="section">
-            <div className="label">Study Support</div>
+            <div className="label">Ask for Help</div>
             <div className="row">
               <input
                 className="input"
                 value={question}
                 onChange={handleQuestionChange}
                 onKeyDown={(e) => e.key === "Enter" && !asking && askAutoRoute()}
-                placeholder="Ask a question about the syllabus or assignments…"
+                placeholder="Ask a question about the syllabus"
               />
             </div>
 
             <div className="actions">
               <button className="btn primary" onClick={askAutoRoute} disabled={asking}>
-                {asking ? "Asking..." : "Ask (Smart route)"}
+                {asking ? "Asking..." : "Ask (Auto-route)"}
               </button>
               <button className="btn" onClick={escalate} disabled={escalating}>
-                {escalating ? "Creating..." : "Bring to pod"}
+                {escalating ? "Creating..." : "Escalate to Pod"}
               </button>
             </div>
 
@@ -299,16 +299,16 @@ export default function PodPage() {
 
             {ticket ? (
               <div className="notice">
-                Study ticket created{ticket.ticketId ? `: ${ticket.ticketId}` : ""}.{" "}
+                Ticket created{ticket.ticketId ? `: ${ticket.ticketId}` : ""}.{" "}
                 {pod?.hubLink ? (
                   <>
-                    Use the Study Hub:{" "}
+                    Use Pod Hub:{" "}
                     <a className="link" href={pod.hubLink} target="_blank" rel="noreferrer">
                       open hub
                     </a>
                   </>
                 ) : (
-                  "Waiting on the leader to set the Study Hub."
+                  "Waiting on leader to set Pod Hub."
                 )}
               </div>
             ) : null}

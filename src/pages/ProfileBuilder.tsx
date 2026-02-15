@@ -177,8 +177,8 @@ try {
 
   return (
     <div className="card">
-      <h1>Your learning profile</h1>
-      <p className="muted">Tell CourseCupid how you like to work so it can pair you with classmates who fit your goals and schedule.</p>
+      <h1>Profile Builder</h1>
+      <p className="muted">Keep it simple. This is the judge-friendly demo path.</p>
 
       <div className="row">
         <label className="label">Display name (optional)</label>

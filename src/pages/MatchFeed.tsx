@@ -88,7 +88,7 @@ export default function MatchFeed() {
       setPod(p || null);
 
       if (p?.podId && ((p as any)?.members?.length || 0) > 0) {
-        toast("It’s a match 💘 Study pod formed!", "success");
+        toast("It’s a match 💘 Pod formed!", "success");
         nav("/pod");
       }
     } catch (e: any) {
@@ -165,7 +165,7 @@ export default function MatchFeed() {
     <div className="card">
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1>Study Match Feed</h1>
+          <h1>Match Feed</h1>
           <div className="muted">
             {courseInfo?.courseName ? (
               <>
@@ -199,7 +199,7 @@ export default function MatchFeed() {
 
       {hasPod ? (
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-          <div className="muted">You’re in a study pod.</div>
+          <div className="muted">You’re in a pod.</div>
           <button className="btn" onClick={() => nav("/pod")}>
             Go to Pod
           </button>
@@ -207,13 +207,13 @@ export default function MatchFeed() {
       ) : null}
 
       <div style={{ marginTop: 16 }}>
-        <h2>Classmates</h2>
+        <h2>People</h2>
         {loading ? <div className="muted">Loading…</div> : null}
 
         {!loading && candidates.length === 0 ? (
           <div className="empty">
-            <div className="emptyTitle">No study matches yet</div>
-            <div className="muted">Try switching modes, or come back after more classmates make profiles.</div>
+            <div className="emptyTitle">No matches yet</div>
+            <div className="muted">Try switching mode, or come back later.</div>
           </div>
         ) : null}
 
