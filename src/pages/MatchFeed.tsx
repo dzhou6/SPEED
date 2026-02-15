@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, qs } from "../api/client";
-import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest, CourseInfo, AskResponse } from "../api/types";
+import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest, AskResponse } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
 
-const DEMO_CANDIDATES = [
+const DEMO_CANDIDATES: RecommendationUser[] = [
   {
     userId: "demo_u1",
     displayName: "Ava",
-    roles: ["Backend"],
+    rolePrefs: ["Backend"],
     skills: ["Python", "APIs", "FastAPI", "MongoDB"],
     availability: ["Mon evening", "Wed evening"],
     lastActive: "active today",
@@ -19,7 +19,7 @@ const DEMO_CANDIDATES = [
   {
     userId: "demo_u2",
     displayName: "Noah",
-    roles: ["Matching"],
+    rolePrefs: ["Matching"],
     skills: ["ML", "Python", "Data"],
     availability: ["Tue evening", "Thu evening"],
     lastActive: "active 1d ago",
@@ -28,7 +28,7 @@ const DEMO_CANDIDATES = [
   {
     userId: "demo_u3",
     displayName: "Mia",
-    roles: ["Platform"],
+    rolePrefs: ["Platform"],
     skills: ["Docker", "Git", "AWS"],
     availability: ["Fri evening", "Sat afternoon"],
     lastActive: "active 2d ago",
@@ -168,7 +168,7 @@ export default function MatchFeed() {
     if (!userId || !courseCode) return toast("Missing session.", "error");
     setSwiping(targetUserId);
     try {
-      const payload: SwipeRequest = { courseCode, userId, targetUserId, decision };
+      const payload: SwipeRequest = { courseCode, targetUserId, decision };
       await api("/swipe", "POST", payload);
       // Refresh after swipe
       await load();
