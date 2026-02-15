@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, qs } from "../api/client";
-import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest, AskResponse } from "../api/types";
+import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
@@ -13,7 +13,7 @@ const DEMO_CANDIDATES: RecommendationUser[] = [
     rolePrefs: ["Backend"],
     skills: ["Python", "APIs", "FastAPI", "MongoDB"],
     availability: ["Mon evening", "Wed evening"],
-    lastActive: "active today",
+    lastActiveAt: "active today",
     reasons: ["You picked Frontend; they picked Backend", "Overlapping evenings"],
   },
   {
@@ -61,7 +61,6 @@ export default function MatchFeed() {
   const nav = useNavigate();
   const [userId] = useLocalStorage<string | null>("cc_userId", null);
   const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
-  const [matchMode, setMatchMode] = useLocalStorage<"quickmatch" | "skillmatch">("cc_matchMode", "skillmatch");
 
   const [candidates, setCandidates] = useState<RecommendationUser[]>([]);
   const [pod, setPod] = useState<PodState | null>(null);
@@ -89,7 +88,7 @@ export default function MatchFeed() {
     setLoading(true);
     console.log(`Loading recommendations with mode: ${matchMode}...`);
    try {
-  const rec = await api<RecommendationsResponse>(`/recommendations${qs({ courseCode, mode: matchMode })}`, "GET");
+  const rec = await api<RecommendationsResponse>(`/recommendations${qs({ courseCode })}`, "GET");
   const list = rec?.candidates || [];
   console.log(`Loaded ${list.length} candidates`);
 
@@ -168,7 +167,7 @@ export default function MatchFeed() {
     if (!userId || !courseCode) return toast("Missing session.", "error");
     setSwiping(targetUserId);
     try {
-      const payload: SwipeRequest = { courseCode, targetUserId, decision };
+      const payload: SwipeRequest = { courseCode, targetUserId:userId, decision };
       await api("/swipe", "POST", payload);
       // Refresh after swipe
       await load();
@@ -339,7 +338,7 @@ export default function MatchFeed() {
                 <div>
                   <div className="name">{u.displayName || "Anonymous"}</div>
                   <div className="muted small">
-                    Roles: {pickTop(u.roles || u.rolePrefs, 2).join(", ") || "n/a"}
+                    Roles: {pickTop(u.roles ?? u.rolePrefs ?? [], 2).join(", ") || "n/a"}
                   </div>
                   <div className="muted small">
                     Skills: {pickTop(u.skills, 4).join(", ") || "n/a"}
@@ -348,7 +347,8 @@ export default function MatchFeed() {
                     Availability: {pickTop(u.availability, 2).join(" • ") || "n/a"}
                   </div>
                 </div>
-                <span className="badge">{lastActiveBadge(u.lastActive || u.lastActiveAt)}</span>
+                <span className="badge">{lastActiveBadge(u.lastActiveAt ?? u.lastActive ?? undefined)}</span>
+
               </div>
 
               {u.reasons?.length ? (

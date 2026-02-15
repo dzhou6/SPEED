@@ -5,6 +5,7 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
 
+<<<<<<< HEAD
 function roomSlug(raw: string) {
   return (
     raw
@@ -24,12 +25,21 @@ async function copyLink(url: string) {
     window.prompt("Copy this link:", url);
   }
 }
+=======
+type PodMemberView = PodMember & {
+  roles?: string[];
+  skills?: string[];
+  lastActive?: string;
+  // allow older/newer contact shapes during hackathon
+  contact?: PodMember["contact"] & { email?: string | null };
+};
+>>>>>>> 6ea5624 (Fix frontend build and connect backend to Atlas)
 
 
 function isUnlocked(meId: string, m: PodMember, unlockedIds?: string[]) {
   if (m.userId === meId) return true;
   if (m.contactUnlocked === true) return true;
-  if (m.mutualAccepted === true) return true;
+  //if (m.mutualAccepted === true) return true;
   // Check if userId is in unlockedContactIds array from backend
   if (unlockedIds?.includes(m.userId)) return true;
   // Some backends might embed something else; default locked.
@@ -93,42 +103,42 @@ export default function PodPage() {
   }, [pod]);
 
   const meLeader = useMemo(() => {
-    if (!userId) return false;
-    return !!leaderId && leaderId === userId;
-  }, [leaderId, userId]);
+    layer?: string;
+    links?: Array<string | AskLink>;
+  });
 
+export type CourseInfo = {
+  courseCode: string;
+  courseName?: string;
+  syllabusText?: string;
+  professor?: string;
+  location?: string;
+  classPolicy?: string;
+  latePolicy?: string;
+  officeHours?: string;
+};
 
-  const members = useMemo(() => {
-    const mems = pod?.members || [];
-    // Map rolePrefs to roles for compatibility
-    return mems.map(m => ({
-      ...m,
-      roles: m.roles || m.rolePrefs,
-      lastActive: m.lastActive || (m.lastActiveAt ? formatLastActive(m.lastActiveAt) : undefined)
-    }));
-  }, [pod?.members]);
-  const hasPod = useMemo(() => {
-    if (pod?.hasPod === false) return false;
-    return !!pod?.podId && members.length > 0;
-  }, [pod?.hasPod, pod?.podId, members.length]);
-  
-  const podRoom = useMemo(() => {
-    // same for everyone in the pod because podId is shared
-    const base = pod?.podId || courseCode || "pod";
-    return roomSlug(`coursecupid-${base}`);
-  }, [pod?.podId, courseCode]);
+export type UserCoursesResponse = {
+  courseCodes: string[];
+  courses?: Array<{
+    courseCode: string;
+    courseName?: string;
+  }>;
+};
 
-  const pairdropKey = useMemo(() => roomKey5(podRoom), [podRoom]);
+// JoinCourse.tsx expects res.displayName
+export interface DemoAuthResponse {
+  userId: string;
+  courseCode: string;
+  token?: string;
+  displayName?: string;
+}
 
-  const quickLinks = useMemo(() => {
-    return {
-      video: `https://talky.io/${podRoom}`,                 // video + chat (no account)
-      whiteboard: `https://wbo.ophir.dev/boards/${podRoom}`, // whiteboard (no account)
-      files: `https://pairdrop.net/?room_key=${pairdropKey}` // file drop (no account)
-    };
-  }, [podRoom, pairdropKey]);
-
-
+export interface TicketResponse {
+  ok: boolean;
+  ticketId?: string;
+  message?: string;
+}
   function formatLastActive(iso: string): string {
     try {
       const d = new Date(iso);

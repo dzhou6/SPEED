@@ -5,6 +5,8 @@ import type { RolePref } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { toast } from "../components/Toast";
 
+
+
 // Check if string is a valid MongoDB ObjectId format (24 hex characters)
 function isValidObjectId(id: string | null): boolean {
   if (!id) return false;
@@ -28,7 +30,8 @@ export default function ProfileBuilder() {
   const [userId] = useLocalStorage<string | null>("cc_userId", null);
   const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
   const [storedName, setStoredName] = useLocalStorage<string | null>("cc_displayName", null);
-
+  const [contactDiscord, setContactDiscord] = useState("");
+  const [contactLinkedIn, setContactLinkedIn] = useState("");
   const [displayName, setDisplayName] = useState(storedName || "");
   const [roles, setRoles] = useState<RolePref[]>(["Frontend"]);
   const [skills, setSkills] = useState<string[]>(["JavaScript", "React"]);
@@ -237,6 +240,27 @@ try {
         <label className="label">Goals (optional)</label>
         <input className="input" value={goals} onChange={(e) => setGoals(e.target.value)} placeholder="exam prep, homework help..." />
       </div>
+      
+      <div className="field">
+        <label>Discord</label>
+        <input
+          type="text"
+          placeholder="e.g. davidzhou#1234"
+          value={contactDiscord}
+          onChange={(e) => setContactDiscord(e.target.value)}
+        />
+      </div>
+
+      <div className="field">
+        <label>LinkedIn</label>
+        <input
+          type="url"
+          placeholder="https://linkedin.com/in/yourname"
+          value={contactLinkedIn}
+          onChange={(e) => setContactLinkedIn(e.target.value)}
+        />
+      </div>
+
 
       <div className="row">
         <label className="label">Discord (optional)</label>
