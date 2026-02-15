@@ -1,4 +1,4 @@
-const BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
 type HttpMethod = "GET" | "POST";
 
@@ -60,7 +60,7 @@ export async function api<TResponse>(
     }
   }
   
-  const url = `${BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
   const { controller, clear } = withTimeout(12000);
 
   try {
@@ -81,20 +81,10 @@ export async function api<TResponse>(
     const maybeJson = text ? safeJson(text) : null;
 
     if (!res.ok) {
-      let msg: string;
-      if (maybeJson) {
-        // Handle Pydantic validation errors (422)
-        if (maybeJson.detail && Array.isArray(maybeJson.detail)) {
-          const errors = maybeJson.detail.map((e: any) => 
-            `${e.loc?.join('.') || 'field'}: ${e.msg || e.type || 'validation error'}`
-          ).join(', ');
-          msg = `Validation error: ${errors}`;
-        } else {
-          msg = maybeJson.error || maybeJson.message || maybeJson.detail || text || `Request failed (${res.status})`;
-        }
-      } else {
-        msg = text || `Request failed (${res.status})`;
-      }
+      const msg =
+        (maybeJson && (maybeJson.error || maybeJson.message || maybeJson.detail)) ||
+        text ||
+        `Request failed (${res.status})`;
       
       // If 400/401 with "Invalid X-User-Id" or "Missing X-User-Id", it's a session issue
       if ((res.status === 400 || res.status === 401) && 

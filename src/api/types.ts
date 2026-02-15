@@ -1,114 +1,130 @@
-export type DemoAuthResponse = {
-   userId: string;
-  displayName?: string;
-};
+// src/api/types.ts
 
-export type Role = "Frontend" | "Backend" | "Matching" | "Platform";
-export type RolePref = "Frontend" | "Backend" | "Matching" | "Platform";
+export type Role =
+  | "Frontend"
+  | "Backend"
+  | "Matching"
+  | "Platform"
+  | "DevOps"
+  | "Design"
+  | "Other";
 
+export type RolePref = Role;
 
-// types.ts
+export type SwipeDecision = "accept" | "pass";
 
-export type ContactInfo = {
-  discord?: string;
-  linkedin?: string;
-};
+export interface ContactInfo {
+  discord?: string | null;
+  linkedin?: string | null;
 
+  // some pages reference contact.email, so allow it
+  email?: string | null;
+}
 
-export type ProfileUpsertRequest = {
-  courseCode: string;
+// Used by MatchFeed cards
+export interface RecommendationUser {
   userId: string;
 
   displayName?: string;
-  roles: string[];
-  skills: string[];
-  availability: string[];
-  goals?: string;
-  contact?: { discord?: string; linkedin?: string };
-};
+  bio?: string | null;
 
-export type Profile = {
-  userId: string;
-  courseCode: string;
-  displayName?: string;
-  roles: Role[];
-  skills: string[];
-  availability: string[];
-  goals?: string[];
-};
+  // keep both to avoid frontend/back-end naming mismatches during hackathon
+  rolePrefs?: Role[];
+  roles?: Role[];
 
-export type RecommendationUser = {
-  userId: string;
-  displayName: string;
-  rolePrefs?: Role[];         // Backend sends rolePrefs
-  roles?: Role[];              // Alias for compatibility
-  skills: string[];
-  availability: string[];
-  lastActiveAt?: string;       // Backend sends lastActiveAt (ISO datetime)
-  lastActive?: string;         // Formatted version (e.g. "active today")
-  reasons?: string[];          // "Why this match"
-};
-
-export type RecommendationsResponse = {
-  candidates: RecommendationUser[];
-};
-
-export type PodMember = {
-  userId: string;
-  displayName: string;
-  rolePrefs?: Role[];          // Backend sends rolePrefs
-  roles?: Role[];              // Alias for compatibility
+  // MatchFeed currently uses these
   skills?: string[];
   availability?: string[];
-  lastActiveAt?: string;       // Backend sends lastActiveAt (ISO datetime)
-  lastActive?: string;         // Formatted version
-  isMutual?: boolean;          // Computed from unlockedContactIds
-  contactUnlocked?: boolean;   // Computed from unlockedContactIds
-  contact?: {
-    linkedin?: string;
-    discord?: string;
-    email?: string;
-  };
-};
+  reasons?: string[];
 
-export type PodState = {
-  hasPod?: boolean;            // Backend sends hasPod: false when no pod
+  // “lastActiveAt” is canonical; allow null/undefined
+  lastActiveAt?: string | null;
+
+  // optional legacy convenience field (if you still use it somewhere)
+  lastActive?: string;
+
+  // anything else the backend might attach
+  score?: number;
+}
+
+// Used by Pod page member list
+export interface PodMember {
+  userId: string;
+  displayName?: string;
+
+  rolePrefs?: Role[];
+  roles?: Role[];
+
+  skills?: string[];
+  availability?: string[];
+
+  mutualAccepted?: boolean;
+
+  // your PodPage checks this
+  contactUnlocked?: boolean;
+
+  // last-active fields that some UIs compute/display
+  lastActiveAt?: string | null;
+  lastActive?: string;
+
+  contact?: ContactInfo;
+}
+
+// IMPORTANT: keep PodState as a single interface (not a union)
+export interface PodState {
+  hasPod: boolean;
+
   podId?: string;
   courseCode?: string;
-  leaderId?: string;           // Backend sends leaderId
-  leaderUserId?: string;       // Alias for compatibility
-  hubLink?: string;
-  members: PodMember[];
-  unlockedContactIds?: string[]; // Backend sends array of unlocked user IDs
-  memberIds?: string[];        // Backend also sends memberIds
-};
 
-export type AskResponse = {
-  layer: 1 | 2 | 3;
-  answer: string;
-  links?: string[] | { title: string; url: string }[]; // Backend sends string[], frontend expects objects
-};
+  members?: PodMember[];
 
-export type TicketResponse = {
-  ticketId: string;
-  createdAt?: string;
-};
+  leaderUserId?: string;
+  hubLink?: string | null;
 
-export type CourseInfo = {
+  unlockedContactIds?: string[];
+}
+
+export interface RecommendationsResponse {
+  // some code uses rec.candidates, some uses rec.recommendations
+  candidates?: RecommendationUser[];
+  recommendations?: RecommendationUser[];
+  pod?: PodState;
+}
+
+export interface SwipeRequest {
+  userId: string; // actor (current user)
   courseCode: string;
-  courseName?: string;
-  syllabusText?: string;
-  professor?: string;
-  location?: string;
-  classPolicy?: string;
-  latePolicy?: string;
-  officeHours?: string;
-};
+  targetUserId: string;
+  decision: SwipeDecision;
+}
 
-export type UserCoursesResponse = {
-  courseCodes: string[];
-  courses?: Array<{
-    courseCode: string;
-    courseName?: string;
-  }>;
-};
+export interface SetHubRequest {
+  userId: string;
+  courseCode: string;
+  hubLink: string;
+}
+
+export type AskLink = { title?: string; url: string };
+
+export interface AskResponse {
+  answer: string;
+
+  // PodPage references these
+  layer?: string;
+  links?: Array<string | AskLink>;
+}
+
+// JoinCourse.tsx expects res.displayName
+export interface DemoAuthResponse {
+  userId: string;
+  courseCode: string;
+  token?: string;
+  displayName?: string;
+}
+
+export interface TicketResponse {
+  ok: boolean;
+  ticketId?: string;
+  message?: string;
+}

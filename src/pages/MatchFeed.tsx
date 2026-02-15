@@ -1,25 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, qs } from "../api/client";
-import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest, CourseInfo, AskResponse } from "../api/types";
+import type { PodState, RecommendationUser, RecommendationsResponse, SwipeRequest } from "../api/types";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
 
-const DEMO_CANDIDATES = [
+const DEMO_CANDIDATES: RecommendationUser[] = [
   {
     userId: "demo_u1",
     displayName: "Ava",
-    roles: ["Backend"],
+    rolePrefs: ["Backend"],
     skills: ["Python", "APIs", "FastAPI", "MongoDB"],
     availability: ["Mon evening", "Wed evening"],
-    lastActive: "active today",
+    lastActiveAt: "active today",
     reasons: ["You picked Frontend; they picked Backend", "Overlapping evenings"],
   },
   {
     userId: "demo_u2",
     displayName: "Noah",
-    roles: ["Matching"],
+    rolePrefs: ["Matching"],
     skills: ["ML", "Python", "Data"],
     availability: ["Tue evening", "Thu evening"],
     lastActive: "active 1d ago",
@@ -28,7 +28,7 @@ const DEMO_CANDIDATES = [
   {
     userId: "demo_u3",
     displayName: "Mia",
-    roles: ["Platform"],
+    rolePrefs: ["Platform"],
     skills: ["Docker", "Git", "AWS"],
     availability: ["Fri evening", "Sat afternoon"],
     lastActive: "active 2d ago",
@@ -59,20 +59,12 @@ function lastActiveBadge(raw?: string) {
 
 export default function MatchFeed() {
   const nav = useNavigate();
-  const [userId] = useLocalStorage<string | null>("cc_userId", null);
-  const [courseCode] = useLocalStorage<string | null>("cc_courseCode", null);
-  const [matchMode, setMatchMode] = useLocalStorage<"quickmatch" | "skillmatch">("cc_matchMode", "skillmatch");
-
+  const [userId] = useLocalStorage<string>("cc_userId", "");
+const [courseCode] = useLocalStorage<string>("cc_courseCode", "");
   const [candidates, setCandidates] = useState<RecommendationUser[]>([]);
   const [pod, setPod] = useState<PodState | null>(null);
-  const [courseInfo, setCourseInfo] = useState<CourseInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [swiping, setSwiping] = useState<string | null>(null);
-  
-  // Chatbox state
-  const [question, setQuestion] = useState("");
-  const [ai, setAi] = useState<AskResponse | null>(null);
-  const [asking, setAsking] = useState(false);
 
   const hasPod = useMemo(() => {
     if (pod?.hasPod === false) return false;
@@ -87,10 +79,10 @@ export default function MatchFeed() {
       return;
     }
     setLoading(true);
-    console.log(`Loading recommendations with mode: ${matchMode}...`);
+    console.log("Loading recommendations...");
    try {
-  const rec = await api<RecommendationsResponse>(`/recommendations${qs({ courseCode, mode: matchMode })}`, "GET");
-  const list = rec?.candidates || [];
+  const rec = await api<RecommendationsResponse>(`/recommendations${qs({ courseCode })}`, "GET");
+  const list = rec?.candidates ?? rec?.recommendations ?? [];
   console.log(`Loaded ${list.length} candidates`);
 
   // If backend returns empty, fall back to demo candidates
@@ -106,18 +98,6 @@ export default function MatchFeed() {
     nav("/pod");
   }
 } catch (e: any) {
-  const msg = String(e?.message || "");
-  const isConnRefused =
-    msg.includes("Failed to fetch") ||
-    msg.includes("ERR_CONNECTION_REFUSED") ||
-    msg.includes("NetworkError");
-
-  if (isConnRefused) {
-    setCandidates(DEMO_CANDIDATES);
-    toast("Backend offline — using demo matches.", "info");
-    return;
-  }
-
   toast(e?.message || "Failed to load matches.", "error");
 } finally {
   setLoading(false);
@@ -125,28 +105,13 @@ export default function MatchFeed() {
 
   }
 
-  // Load course info
-  useEffect(() => {
-    async function loadCourseInfo() {
-      if (!courseCode) return;
-      try {
-        const course = await api<CourseInfo>(`/course${qs({ courseCode })}`, "GET");
-        setCourseInfo(course);
-      } catch (e) {
-        // Course info is optional, don't show error
-        console.log("Course info not available");
-      }
-    }
-    loadCourseInfo();
-  }, [courseCode]);
-
-  // Load recommendations when courseCode or matchMode changes
+  // Load recommendations once on mount
   useEffect(() => {
     if (courseCode) {
       load();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseCode, matchMode]); // Reload if courseCode or matchMode changes
+  }, [courseCode]); // Only reload if courseCode changes
 
   // Poll pod every 10s while in feed (but don't reload recommendations)
   // Only poll if user doesn't have a pod yet (to detect new matches)
@@ -168,7 +133,7 @@ export default function MatchFeed() {
     if (!userId || !courseCode) return toast("Missing session.", "error");
     setSwiping(targetUserId);
     try {
-      const payload: SwipeRequest = { courseCode, userId, targetUserId, decision };
+      const payload: SwipeRequest = { userId, courseCode, targetUserId, decision };
       await api("/swipe", "POST", payload);
       // Refresh after swipe
       await load();
@@ -176,32 +141,6 @@ export default function MatchFeed() {
       toast(e?.message || "Swipe failed.", "error");
     } finally {
       setSwiping(null);
-    }
-  }
-
-  async function askQuestion() {
-    if (!courseCode || !userId) return toast("Missing session.", "error");
-    if (!question.trim()) return toast("Type a question.", "error");
-    setAsking(true);
-    setAi(null); // Clear previous answer when asking new question
-    try {
-      const res = await api<AskResponse>("/ask", "POST", {
-        courseCode,
-        question: question.trim(),
-      }, userId);
-      setAi(res || { layer: 1, answer: "No response." });
-    } catch (e: any) {
-      toast(e?.message || "Ask failed.", "error");
-    } finally {
-      setAsking(false);
-    }
-  }
-
-  function handleQuestionChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setQuestion(e.target.value);
-    // Clear previous answer when user starts typing a new question
-    if (ai) {
-      setAi(null);
     }
   }
 
@@ -219,101 +158,8 @@ export default function MatchFeed() {
         </div>
       ) : null}
 
-      {/* Match Mode Toggle */}
-      <div style={{ 
-        display: "flex", 
-        alignItems: "center", 
-        gap: "12px",
-        marginBottom: "16px",
-        padding: "12px",
-        background: "var(--card)",
-        borderRadius: "8px",
-        border: "1px solid var(--border)"
-      }}>
-        <span className="label" style={{ marginRight: "8px", whiteSpace: "nowrap" }}>Match Mode:</span>
-        <button
-          className={`btn ${matchMode === "quickmatch" ? "primary" : ""}`}
-          onClick={() => {
-            setMatchMode("quickmatch");
-          }}
-          style={{
-            flex: 1,
-            padding: "10px 16px",
-            fontSize: "0.9em",
-            fontWeight: matchMode === "quickmatch" ? "bold" : "normal",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px"
-          }}
-        >
-          <span>⚡ QuickMatch</span>
-          <span style={{ fontSize: "0.75em", opacity: 0.8 }}>Fast active people</span>
-        </button>
-        <button
-          className={`btn ${matchMode === "skillmatch" ? "primary" : ""}`}
-          onClick={() => {
-            setMatchMode("skillmatch");
-          }}
-          style={{
-            flex: 1,
-            padding: "10px 16px",
-            fontSize: "0.9em",
-            fontWeight: matchMode === "skillmatch" ? "bold" : "normal",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px"
-          }}
-        >
-          <span>🎯 SkillMatch</span>
-          <span style={{ fontSize: "0.75em", opacity: 0.8 }}>Targeted roles/skills</span>
-        </button>
-      </div>
-
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div className="muted">
-            Course: <b>{courseCode}</b>
-            {courseInfo?.courseName && ` - ${courseInfo.courseName}`}
-          </div>
-          {courseInfo?.syllabusText && (
-            <details style={{ marginTop: "8px", fontSize: "0.9em" }} open>
-              <summary style={{ cursor: "pointer", color: "var(--primary2)", fontWeight: "bold" }}>
-                Full Course Syllabus
-              </summary>
-              <div style={{ 
-                marginTop: "8px", 
-                padding: "16px", 
-                background: "var(--card)", 
-                borderRadius: "8px", 
-                whiteSpace: "pre-wrap",
-                color: "var(--text)",
-                lineHeight: "1.6",
-                border: "1px solid var(--border)",
-                maxHeight: "400px",
-                overflowY: "auto",
-                overflowX: "hidden",
-                fontSize: "0.8em",
-                fontFamily: "monospace"
-              }}>
-                {courseInfo.syllabusText}
-              </div>
-              <div style={{ 
-                marginTop: "12px", 
-                padding: "10px",
-                fontSize: "0.8em", 
-                color: "var(--muted)",
-                fontStyle: "italic",
-                background: "rgba(255,122,178,0.1)",
-                borderRadius: "6px",
-                border: "1px solid rgba(255,122,178,0.2)"
-              }}>
-                💡 Too much to read? Use the chatbox below to ask questions!
-              </div>
-            </details>
-          )}
-        </div>
+        <div className="muted">Course: <b>{courseCode}</b></div>
         <button 
           className="btn" 
           onClick={() => {
@@ -339,7 +185,7 @@ export default function MatchFeed() {
                 <div>
                   <div className="name">{u.displayName || "Anonymous"}</div>
                   <div className="muted small">
-                    Roles: {pickTop(u.roles || u.rolePrefs, 2).join(", ") || "n/a"}
+                    Roles: {pickTop(u.roles ?? u.rolePrefs ?? [], 2).join(", ") || "n/a"}
                   </div>
                   <div className="muted small">
                     Skills: {pickTop(u.skills, 4).join(", ") || "n/a"}
@@ -348,7 +194,8 @@ export default function MatchFeed() {
                     Availability: {pickTop(u.availability, 2).join(" • ") || "n/a"}
                   </div>
                 </div>
-                <span className="badge">{lastActiveBadge(u.lastActive || u.lastActiveAt)}</span>
+                <span className="badge">{lastActiveBadge(u.lastActiveAt ?? u.lastActive ?? undefined)}</span>
+
               </div>
 
               {u.reasons?.length ? (
@@ -380,48 +227,6 @@ export default function MatchFeed() {
           ))}
         </div>
       )}
-
-      {/* Chatbox for asking syllabus questions */}
-      <div className="section" style={{ marginTop: "24px", borderTop: "1px solid var(--border)", paddingTop: "16px" }}>
-        <div className="label">💬 Ask About Course Syllabus</div>
-        <p className="muted" style={{ fontSize: "0.9em", marginBottom: "12px" }}>
-          Have questions about deadlines, policies, or course info? Ask the AI assistant!
-        </p>
-        <div className="row">
-          <input
-            className="input"
-            value={question}
-            onChange={handleQuestionChange}
-            onKeyDown={(e) => e.key === "Enter" && !asking && askQuestion()}
-            placeholder="e.g., When is the final exam? What's the late policy?"
-            style={{ flex: 1 }}
-          />
-          <button className="btn primary" onClick={askQuestion} disabled={asking || !question.trim()}>
-            {asking ? "Asking..." : "Ask"}
-          </button>
-        </div>
-
-        {ai && (
-          <div className="aiBox" style={{ marginTop: "12px" }}>
-            <div className="badge">Layer {ai.layer}</div>
-            <div className="aiAnswer" style={{ whiteSpace: "pre-wrap" }}>{ai.answer}</div>
-            {ai.links && Array.isArray(ai.links) && ai.links.length > 0 && (
-              <div style={{ marginTop: "8px" }}>
-                <div className="label">Links</div>
-                <ul>
-                  {ai.links.slice(0, 3).map((link, i) => (
-                    <li key={i}>
-                      <a className="link" href={typeof link === "string" ? link : link.url} target="_blank" rel="noreferrer">
-                        {typeof link === "string" ? link : (link.title || link.url)}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

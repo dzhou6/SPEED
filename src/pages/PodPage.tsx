@@ -5,10 +5,19 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useInterval } from "../hooks/useInterval";
 import { toast } from "../components/Toast";
 
+type PodMemberView = PodMember & {
+  roles?: string[];
+  skills?: string[];
+  lastActive?: string;
+  // allow older/newer contact shapes during hackathon
+  contact?: PodMember["contact"] & { email?: string | null };
+};
+
+
 function isUnlocked(meId: string, m: PodMember, unlockedIds?: string[]) {
   if (m.userId === meId) return true;
   if (m.contactUnlocked === true) return true;
-  if (m.mutualAccepted === true) return true;
+  //if (m.mutualAccepted === true) return true;
   // Check if userId is in unlockedContactIds array from backend
   if (unlockedIds?.includes(m.userId)) return true;
   // Some backends might embed something else; default locked.
@@ -42,24 +51,30 @@ export default function PodPage() {
   const [escalating, setEscalating] = useState(false);
 
   const meLeader = useMemo(() => {
-    if (!userId) return false;
-    return pod?.leaderId === userId || pod?.leaderUserId === userId;
-  }, [pod?.leaderId, pod?.leaderUserId, userId]);
+  if (!userId) return false;
+  return pod?.leaderUserId === userId;
+}, [pod?.leaderUserId, userId]);
 
-  const members = useMemo(() => {
-    const mems = pod?.members || [];
-    // Map rolePrefs to roles for compatibility
-    return mems.map(m => ({
-      ...m,
-      roles: m.roles || m.rolePrefs,
-      lastActive: m.lastActive || (m.lastActiveAt ? formatLastActive(m.lastActiveAt) : undefined)
-    }));
-  }, [pod?.members]);
-  const hasPod = useMemo(() => {
-    if (pod?.hasPod === false) return false;
-    return !!pod?.podId && members.length > 0;
-  }, [pod?.hasPod, pod?.podId, members.length]);
-  
+
+const members = useMemo<PodMemberView[]>(() => {
+  const mems = (pod?.members ?? []) as PodMemberView[];
+
+  return mems.map((m) => {
+    const roles = (m as any).roles ?? m.rolePrefs ?? [];
+    const lastActive =
+      (m as any).lastActive ??
+      ((m as any).lastActiveAt ? formatLastActive((m as any).lastActiveAt) : undefined);
+
+    return { ...m, roles, lastActive };
+  });
+}, [pod?.members]);
+
+const hasPod = useMemo(() => {
+  if (pod?.hasPod === false) return false;
+  return !!pod?.podId && members.length > 0;
+}, [pod?.hasPod, pod?.podId, members.length]);
+
+
   function formatLastActive(iso: string): string {
     try {
       const d = new Date(iso);
@@ -132,25 +147,17 @@ export default function PodPage() {
     if (!question.trim()) return toast("Type a question.", "error");
     setAsking(true);
     setTicket(null);
-    setAi(null); // Clear previous answer when asking new question
     try {
       const res = await api<AskResponse>("/ask", "POST", {
         courseCode,
+        userId,
         question: question.trim(),
-      }, userId);
-      setAi(res || { layer: 1, answer: "No response." });
+      });
+      setAi(res || { layer: "Layer ?", answer: "No response." });
     } catch (e: any) {
       toast(e?.message || "Ask failed.", "error");
     } finally {
       setAsking(false);
-    }
-  }
-
-  function handleQuestionChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setQuestion(e.target.value);
-    // Clear previous answer when user starts typing a new question
-    if (ai) {
-      setAi(null);
     }
   }
 
@@ -262,9 +269,8 @@ export default function PodPage() {
               <input
                 className="input"
                 value={question}
-                onChange={handleQuestionChange}
-                onKeyDown={(e) => e.key === "Enter" && !asking && askAutoRoute()}
-                placeholder="Ask a question about the syllabus"
+                onChange={(e) => setQuestion(e.target.value)}
+                placeholder="Ask a question (logistics, pointers, or escalate)"
               />
             </div>
 
